@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from typing import Optional
 from db.database import get_db
-from db.models import OppositionProfile, Match
+from db.models import OppositionProfile, Match, Player, PlayerSeasonStats, Club, Team, Season
 from core.opposition_parser import OppositionParser
 
 router = APIRouter()
@@ -82,4 +83,109 @@ def parse_opposition(request: ScoutingNotesRequest, db: Session = Depends(get_db
         set_piece_threat   = profile.set_piece_threat,
         attributes         = profile.attributes or {},
         raw_scouting_notes = profile.raw_scouting_notes,
+    )
+
+class PlayerRegistrationRequest(BaseModel):
+    club_id: int
+    team_id: int
+    name: str
+    broad_position: str        # GK, DEF, MID, FWD
+    specific_position: str     # CB, CM, ST etc
+    secondary_position: Optional[str] = None
+    jersey_number: Optional[int] = None
+    nationality: Optional[str] = None
+    date_of_birth: Optional[str] = None  # format: YYYY-MM-DD
+
+
+class PlayerRegistrationResponse(BaseModel):
+    player_id: int
+    name: str
+    broad_position: str
+    specific_position: str
+    jersey_number: Optional[int]
+    season_stats_created: bool
+    season_label: Optional[str]
+    message: str
+
+
+@router.post("/players/register", response_model=PlayerRegistrationResponse)
+def register_player(request: PlayerRegistrationRequest, db: Session = Depends(get_db)):
+
+    # Validate club exists
+    club = db.query(Club).filter(Club.id == request.club_id).first()
+    if not club:
+        raise HTTPException(status_code=404, detail="Club not found.")
+
+    # Validate team exists
+    team = db.query(Team).filter(Team.id == request.team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found.")
+
+    # Validate position values
+    valid_broad = ["GK", "DEF", "MID", "FWD"]
+    valid_specific = ["GK", "CB", "RB", "LB", "RWB", "LWB",
+                      "CDM", "CM", "CAM", "RM", "LM",
+                      "RW", "LW", "ST", "CF", "SS"]
+
+    if request.broad_position not in valid_broad:
+        raise HTTPException(status_code=400, detail=f"Invalid broad position. Must be one of {valid_broad}")
+
+    if request.specific_position not in valid_specific:
+        raise HTTPException(status_code=400, detail=f"Invalid specific position. Must be one of {valid_specific}")
+
+    # Parse date of birth if provided
+    from datetime import date
+    dob = None
+    if request.date_of_birth:
+        try:
+            dob = date.fromisoformat(request.date_of_birth)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
+
+    # Create the player
+    player = Player(
+        club_id            = request.club_id,
+        name               = request.name,
+        broad_position     = request.broad_position,
+        specific_position  = request.specific_position,
+        secondary_position = request.secondary_position,
+        jersey_number      = request.jersey_number,
+        nationality        = request.nationality,
+        date_of_birth      = dob,
+        is_active          = True,
+    )
+    db.add(player)
+    db.flush()  # gets us the player.id without committing yet
+
+    # Find active season for this club
+    active_season = db.query(Season).filter(
+        Season.club_id  == request.club_id,
+        Season.is_active == True
+    ).first()
+
+    season_stats_created = False
+    season_label = None
+
+    if active_season:
+        stats_row = PlayerSeasonStats(
+            player_id = player.id,
+            season_id = active_season.id,
+            team_id   = request.team_id,
+        )
+        db.add(stats_row)
+        season_stats_created = True
+        season_label = active_season.label
+
+    db.commit()
+    db.refresh(player)
+
+    return PlayerRegistrationResponse(
+        player_id            = player.id,
+        name                 = player.name,
+        broad_position       = player.broad_position,
+        specific_position    = player.specific_position,
+        jersey_number        = player.jersey_number,
+        season_stats_created = season_stats_created,
+        season_label         = season_label,
+        message              = f"{player.name} registered successfully. Player ID: {player.id}"
     )
