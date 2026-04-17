@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 from db.database import get_db
 from db.models import OppositionProfile, Match, Player, PlayerSeasonStats, Club, Team, Season
 from core.opposition_parser import OppositionParser
+from core.csv_importer import CSVImporter
 
 router = APIRouter()
 parser = OppositionParser()
@@ -188,4 +189,100 @@ def register_player(request: PlayerRegistrationRequest, db: Session = Depends(ge
         season_stats_created = season_stats_created,
         season_label         = season_label,
         message              = f"{player.name} registered successfully. Player ID: {player.id}"
+    )
+
+csv_importer = CSVImporter()
+
+
+class CSVImportResponse(BaseModel):
+    total_rows: int
+    imported: int
+    skipped: int
+    errors: list
+    players: list
+
+
+@router.post("/players/import-csv", response_model=CSVImportResponse)
+async def import_players_csv(
+    club_id: int,
+    team_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    # Validate club and team
+    club = db.query(Club).filter(Club.id == club_id).first()
+    if not club:
+        raise HTTPException(status_code=404, detail="Club not found.")
+
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found.")
+
+    # Validate file type
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="File must be a .csv file.")
+
+    # Read and parse CSV
+    file_bytes = await file.read()
+    result = csv_importer.parse(file_bytes)
+
+    if not result["valid"] and result["errors"]:
+        raise HTTPException(status_code=400, detail=result["errors"])
+
+    # Find active season
+    active_season = db.query(Season).filter(
+        Season.club_id == club_id,
+        Season.is_active == True
+    ).first()
+
+    # Import valid rows
+    imported = []
+    from datetime import date
+
+    for row in result["valid"]:
+        # Parse date of birth
+        dob = None
+        if row["date_of_birth"]:
+            try:
+                dob = date.fromisoformat(row["date_of_birth"])
+            except ValueError:
+                pass
+
+        player = Player(
+            club_id            = club_id,
+            name               = row["name"],
+            broad_position     = row["broad_position"],
+            specific_position  = row["specific_position"],
+            secondary_position = row["secondary_position"],
+            jersey_number      = row["jersey_number"],
+            nationality        = row["nationality"],
+            date_of_birth      = dob,
+            is_active          = True,
+        )
+        db.add(player)
+        db.flush()
+
+        if active_season:
+            stats_row = PlayerSeasonStats(
+                player_id = player.id,
+                season_id = active_season.id,
+                team_id   = team_id,
+            )
+            db.add(stats_row)
+
+        imported.append({
+            "player_id":         player.id,
+            "name":              player.name,
+            "specific_position": player.specific_position,
+            "jersey_number":     player.jersey_number,
+        })
+
+    db.commit()
+
+    return CSVImportResponse(
+        total_rows = len(result["valid"]) + len(result["errors"]),
+        imported   = len(imported),
+        skipped    = len(result["errors"]),
+        errors     = result["errors"],
+        players    = imported,
     )
