@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import Optional
 from db.database import get_db
 from db.models import Match, PlayerMatchSnapshot, PlayerSeasonStats
+from datetime import date as date_type
 
 router = APIRouter()
 
@@ -118,4 +119,25 @@ def write_snapshot(req: SnapshotRequest, db: Session = Depends(get_db)):
         "player_id":     req.player_id,
         "match_id":      req.match_id,
         "season_totals": totals,
+    }
+
+@router.get("/matches/upcoming")
+def get_upcoming_matches(team_id: int, db: Session = Depends(get_db)):
+    match = (
+        db.query(Match)
+        .filter(
+            Match.team_id == team_id,
+            Match.match_date >= date_type.today(),
+            Match.result == None
+        )
+        .order_by(Match.match_date.asc())
+        .first()
+    )
+    if not match:
+        raise HTTPException(status_code=404, detail="No upcoming match found. ")
+    return {
+        "match_id": match.id,
+        "opponent_name": match.opponent_name,
+        "match_date": str(match.match_date),
+        "venue": match.venue,
     }
