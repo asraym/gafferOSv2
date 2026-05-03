@@ -10,3 +10,8 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# ML artifacts
+ml/statsbomb_features.csv
+ml/*.pkl
+ml/*.csv
