@@ -130,3 +130,47 @@ for col in TEAM_METRICS:
 print("\n" + "=" * 60)
 print("EDA COMPLETE")
 print("=" * 60)
+
+# ── 10. Formation distribution ────────────────────────────────────────────────
+print("\n" + "=" * 60)
+print("10. FORMATION DISTRIBUTION")
+print("=" * 60)
+
+FORMATION_DECODING = {
+    0:  "4-3-3",
+    1:  "4-4-2",
+    2:  "4-2-3-1",
+    3:  "4-5-1",
+    4:  "5-4-1",
+    5:  "3-5-2",
+    6:  "3-4-3",
+    7:  "4-1-4-1",
+    8:  "4-3-2-1",
+    9:  "5-3-2",
+    10: "4-4-1-1",
+    11: "3-4-2-1",
+    -1: "Unknown",
+}
+
+# Filter out unknown
+df_known = df[df['formation'] != -1]
+print(f"\n  Known formation rows: {len(df_known)} / {len(df)}")
+
+print(f"\n  Formation frequency:")
+fc = df_known['formation'].value_counts().sort_index()
+for code, count in fc.items():
+    name = FORMATION_DECODING.get(int(code), str(code))
+    pct  = count / len(df_known) * 100
+    bar  = "█" * int(pct / 2)
+    print(f"  {name:<12} {count:>4} ({pct:>5.1f}%)  {bar}")
+
+print(f"\n  Win rate by formation:")
+for code in sorted(df_known['formation'].unique()):
+    subset = df_known[df_known['formation'] == code]
+    win_rate = len(subset[subset['outcome'] == 2]) / len(subset) * 100
+    name = FORMATION_DECODING.get(int(code), str(code))
+    print(f"  {name:<12} win rate: {win_rate:.1f}%  (n={len(subset)})")
+
+print(f"\n  Formation tendency vs actual formation match rate:")
+match_rate = (df_known['formation'] == df_known['formation_tendency']).mean() * 100
+print(f"  {match_rate:.1f}% of matches teams used their most common formation")

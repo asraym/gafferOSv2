@@ -15,6 +15,23 @@ COMPETITIONS = [
     {"competition_id": 9,  "season_id": 281},
 ]
 
+FORMATION_ENCODING = {
+    433:  0,   # 4-3-3
+    442:  1,   # 4-4-2
+    4231: 2,   # 4-2-3-1
+    451:  3,   # 4-5-1
+    541:  4,   # 5-4-1
+    352:  5,   # 3-5-2
+    343:  6,   # 3-4-3
+    4141: 7,   # 4-1-4-1
+    4321: 8,   # 4-3-2-1
+    532:  9,   # 5-3-2
+    4411: 10,  # 4-4-1-1
+    3421: 11,  # 3-4-2-1
+}
+
+FORMATION_CANDIDATES = [433, 442, 4231, 451, 541]
+
 
 def get_match_stats(match_id: int) -> dict | None:
     """Pull all events for a match and compute raw per-team stats."""
@@ -146,6 +163,42 @@ def get_match_stats(match_id: int) -> dict | None:
 
     return stats
 
+def get_formations(match_id: int, home_team: str, away_team: str) -> dict:
+    """Extract starting formation for each team from Starting XI events."""
+    try:
+        events = sb.events(match_id=match_id)
+        xi_events = events[events['type'] == 'Starting XI']
+        
+        formations = {}
+        for _, row in xi_events.iterrows():
+            team = row['team']
+            tactics = row.get('tactics', {})
+            if isinstance(tactics, dict):
+                formation = tactics.get('formation', None)
+                if formation is not None:
+                    formations[team] = int(formation)
+        
+        return formations
+    except Exception as e:
+        print(f"  Formation extraction failed for match {match_id}: {e}")
+        return {}
+
+
+def get_most_common_formation(team: str, match_date: str, history: pd.DataFrame) -> int:
+    """
+    Find the most common starting formation for a team
+    in their last 5 matches before this date.
+    """
+    past = history[
+        (history['team'] == team) &
+        (history['match_date'] < match_date)
+    ].sort_values('match_date', ascending=False).head(5)
+
+    if len(past) == 0:
+        return -1
+
+    return int(past['formation'].mode()[0])
+
 
 def compute_metrics(team_stats: dict, opp_stats: dict, goals_conceded: int) -> dict:
     """Compute 12 normalised indices from raw stats."""
@@ -274,6 +327,10 @@ def build_dataset():
                 print("— skipped")
                 continue
 
+            formations = get_formations(match_id, home_team, away_team)
+            home_formation = formations.get(home_team, None)
+            away_formation = formations.get(away_team, None)
+
             home_metrics = compute_metrics(
                 stats[home_team], stats[away_team], int(away_score)
             )
@@ -287,8 +344,10 @@ def build_dataset():
                 "team":       home_team,
                 "opponent":   away_team,
                 "home_away":  1,
+                "formation": FORMATION_ENCODING.get(home_formation, -1),
                 **{f"team_{k}": v for k, v in home_metrics.items()},
                 **{f"opp_{k}": v for k, v in away_metrics.items()},
+                "opp_formation": FORMATION_ENCODING.get(away_formation, -1),
                 "outcome": outcome_map[result_home],
             })
 
@@ -298,22 +357,41 @@ def build_dataset():
                 "team":       away_team,
                 "opponent":   home_team,
                 "home_away":  0,
+                "formation": FORMATION_ENCODING.get(away_formation, -1),             
                 **{f"team_{k}": v for k, v in away_metrics.items()},
                 **{f"opp_{k}": v for k, v in home_metrics.items()},
+                "opp_formation": FORMATION_ENCODING.get(home_formation, -1),
                 "outcome": outcome_map[result_away],
             })
 
             print("— done")
 
     df = pd.DataFrame(rows)
+
+    # Add rolling formation tendency
+    df['match_date'] = pd.to_datetime(df['match_date'])
+    df = df.sort_values(['team', 'match_date']).reset_index(drop=True)
+
+    def rolling_formation(group):
+        return group['formation'].shift(1).rolling(5, min_periods=1).apply(
+            lambda x: pd.Series(x).mode()[0]
+        )
+
+    df['formation_tendency'] = df.groupby('team', group_keys=False).apply(
+        rolling_formation
+    ).fillna(df['formation'])
+
+    df['formation_tendency'] = df['formation_tendency'].astype(int)
+
     output_path = "ml/statsbomb_features.csv"
     df.to_csv(output_path, index=False)
+
     print(f"\nDone. {len(df)} rows saved to {output_path}")
     print(f"\nOutcome distribution:\n{df['outcome'].value_counts()}")
     print(f"\nColumns: {list(df.columns)}")
     print(f"\nSample:\n{df.head(2).to_string()}")
-    return df
 
+    return df
 
 if __name__ == "__main__":
     build_dataset()
