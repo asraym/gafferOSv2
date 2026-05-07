@@ -5,8 +5,27 @@ from typing import Optional
 from db.database import get_db
 from db.models import Match, PlayerMatchSnapshot, PlayerSeasonStats
 from datetime import date as date_type
+from core.tactical_engine import TacticalEngine
 
 router = APIRouter()
+_engine = TacticalEngine()
+
+class AnalyseRequest(BaseModel):
+    match_id: int
+    team_id: int
+
+@router.post("/analyse")
+def analyse_match(req: AnalyseRequest, db: Session = Depends(get_db)):
+    try:
+        result = _engine.analyse(db, req.match_id, req.team_id)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
 
 
 # --- Match Registration ---

@@ -3,6 +3,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from db.database import Base
+from datetime import datetime
 
 
 class Club(Base):
@@ -104,6 +105,12 @@ class PlayerMatchSnapshot(Base):
     saves             = Column(Integer, default=0)
     match_rating      = Column(Float)
     pis_snapshot      = Column(Float)
+    aerial_duels_won        = Column(Integer, default=0)
+    aerial_duels_attempted  = Column(Integer, default=0)
+    avg_position_x          = Column(Float, nullable=True)
+    avg_position_y          = Column(Float, nullable=True)
+    shot_locations          = Column(JSONB, default=list)
+    fouls_committed         = Column(Integer, default=0)
 
     __table_args__ = (UniqueConstraint("player_id", "match_id"),)
 
@@ -157,3 +164,15 @@ class OppositionProfile(Base):
     created_at         = Column(DateTime, server_default=func.now())
 
     match = relationship("Match", back_populates="opposition_profile")
+
+class MatchTeamStats(Base):
+    __tablename__ = "match_team_stats"
+
+    id                   = Column(Integer, primary_key=True, index=True)
+    match_id             = Column(Integer, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False)
+    team_id              = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False)
+    possession_pct       = Column(Float, nullable=True)
+    total_pressures      = Column(Integer, default=0)
+    avg_transition_time  = Column(Float, nullable=True)
+    defensive_line_height = Column(Float, nullable=True)
+    created_at           = Column(DateTime, default=datetime.utcnow)
