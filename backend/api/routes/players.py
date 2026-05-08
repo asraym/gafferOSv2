@@ -4,8 +4,9 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import date
 from db.database import get_db
-from db.models import Player, PlayerSeasonStats, PlayerMatchSnapshot, Club, Team, Season
+from db.models import Player, PlayerSeasonStats, PlayerMatchSnapshot, Club, Team, Season, PlayerPositionalAnswers, Season
 from core.csv_importer import CSVImporter
+from core.player_traits import validate_traits, get_traits_for_position, get_tactical_profile
 
 router = APIRouter()
 csv_importer = CSVImporter()
@@ -261,4 +262,91 @@ def player_form(player_id: int, n: int = 5, db: Session = Depends(get_db)):
             }
             for s in snapshots
         ],
+    }
+
+class TraitSubmission(BaseModel):
+    season_id:         int
+    specific_position: str
+    traits:            list[str]
+
+
+@router.post("/{player_id}/traits")
+def save_player_traits(player_id: int, payload: TraitSubmission, db: Session = Depends(get_db)):
+    # Check player exists
+    player = db.query(Player).filter(Player.id == player_id).first()
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found.")
+
+    # Validate traits
+    validation = validate_traits(payload.specific_position, payload.traits)
+    if not validation["valid"]:
+        raise HTTPException(status_code=400, detail={
+            "message":        "Invalid trait selection.",
+            "errors":         validation["errors"],
+            "invalid_traits": validation["invalid_traits"],
+        })
+
+    # Upsert — overwrite if already exists for this player/season/position
+    existing = (
+        db.query(PlayerPositionalAnswers)
+        .filter(
+            PlayerPositionalAnswers.player_id == player_id,
+            PlayerPositionalAnswers.season_id == payload.season_id,
+            PlayerPositionalAnswers.position  == payload.specific_position,
+        )
+        .first()
+    )
+
+    if existing:
+        existing.answers = {"traits": payload.traits}
+    else:
+        db.add(PlayerPositionalAnswers(
+            player_id = player_id,
+            season_id = payload.season_id,
+            position  = payload.specific_position,
+            answers   = {"traits": payload.traits},
+        ))
+
+    db.commit()
+
+    # Return tactical profile derived from these traits
+    profile = get_tactical_profile(payload.traits)
+    return {
+        "player_id":        player_id,
+        "position":         payload.specific_position,
+        "traits_saved":     payload.traits,
+        "tactical_profile": profile,
+    }
+
+
+@router.get("/{player_id}/traits")
+def get_player_traits(player_id: int, season_id: int, specific_position: str, db: Session = Depends(get_db)):
+    # Check player exists
+    player = db.query(Player).filter(Player.id == player_id).first()
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found.")
+
+    # Get valid traits for this position
+    valid_traits = get_traits_for_position(specific_position)
+
+    # Get saved traits if any
+    saved = (
+        db.query(PlayerPositionalAnswers)
+        .filter(
+            PlayerPositionalAnswers.player_id == player_id,
+            PlayerPositionalAnswers.season_id == season_id,
+            PlayerPositionalAnswers.position  == specific_position,
+        )
+        .first()
+    )
+
+    selected_traits  = saved.answers.get("traits", []) if saved else []
+    tactical_profile = get_tactical_profile(selected_traits) if selected_traits else {}
+
+    return {
+        "player_id":         player_id,
+        "position":          specific_position,
+        "available_traits":  valid_traits,
+        "selected_traits":   selected_traits,
+        "tactical_profile":  tactical_profile,
     }

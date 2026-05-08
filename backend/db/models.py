@@ -148,6 +148,78 @@ class PlayerSeasonStats(Base):
     __table_args__ = (UniqueConstraint("player_id", "season_id"),)
 
 
+class PlayerPhysicalAttributes(Base):
+    __tablename__ = "player_physical_attributes"
+
+    id                    = Column(Integer, primary_key=True)
+    player_id             = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
+    season_id             = Column(Integer, ForeignKey("seasons.id", ondelete="CASCADE"), nullable=False)
+    height_cm             = Column(Float, nullable=True)
+    weight_kg             = Column(Float, nullable=True)
+    beep_test_level       = Column(Float, nullable=True)   # e.g. 12.4
+    sprint_time_20m       = Column(Float, nullable=True)   # seconds, lower is better
+    vertical_jump_cm      = Column(Float, nullable=True)
+    date_assessed         = Column(String, nullable=True)
+    created_at            = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("player_id", "season_id", name="uq_player_season_physical"),
+    )
+
+
+class PlayerPositionalAnswers(Base):
+    __tablename__ = "player_positional_answers"
+
+    id          = Column(Integer, primary_key=True)
+    player_id   = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
+    season_id   = Column(Integer, ForeignKey("seasons.id", ondelete="CASCADE"), nullable=False)
+    position    = Column(String(10), nullable=False)   # specific position this answer set is for
+    answers     = Column(JSONB, default=dict)          # question_key → answer
+    created_at  = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("player_id", "season_id", "position", name="uq_player_season_position_answers"),
+    )
+
+
+class PlayerAttributeProfile(Base):
+    __tablename__ = "player_attribute_profiles"
+
+    id               = Column(Integer, primary_key=True)
+    player_id        = Column(Integer, ForeignKey("players.id", ondelete="CASCADE"), nullable=False)
+    season_id        = Column(Integer, ForeignKey("seasons.id", ondelete="CASCADE"), nullable=False)
+    # Physical — 1 to 20
+    pace             = Column(Float, nullable=True)
+    acceleration     = Column(Float, nullable=True)
+    stamina          = Column(Float, nullable=True)
+    strength         = Column(Float, nullable=True)
+    jumping          = Column(Float, nullable=True)
+    # Technical — 1 to 20
+    finishing        = Column(Float, nullable=True)
+    passing          = Column(Float, nullable=True)
+    crossing         = Column(Float, nullable=True)
+    dribbling        = Column(Float, nullable=True)
+    heading          = Column(Float, nullable=True)
+    long_shots       = Column(Float, nullable=True)
+    creativity       = Column(Float, nullable=True)
+    # Defensive — 1 to 20
+    tackling         = Column(Float, nullable=True)
+    positioning      = Column(Float, nullable=True)
+    interceptions    = Column(Float, nullable=True)
+    aggression       = Column(Float, nullable=True)
+    # Mental — 1 to 20
+    work_rate        = Column(Float, nullable=True)
+    decision_making  = Column(Float, nullable=True)
+    # Overall role ratings — 1 to 20
+    role_rating      = Column(Float, nullable=True)   # rating for their primary position
+    overall_rating   = Column(Float, nullable=True)   # squad-normalised overall
+    updated_at       = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("player_id", "season_id", name="uq_player_season_profile"),
+    )
+
+
 class OppositionProfile(Base):
     __tablename__ = "opposition_profiles"
 
@@ -162,7 +234,6 @@ class OppositionProfile(Base):
     attributes         = Column(JSONB, default=dict)
     raw_scouting_notes = Column(Text)
     created_at         = Column(DateTime, server_default=func.now())
-
     match = relationship("Match", back_populates="opposition_profile")
 
 class MatchTeamStats(Base):
