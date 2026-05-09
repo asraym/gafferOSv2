@@ -114,24 +114,104 @@ class TacticalReasoner:
         return data
 
     def _pick_formation_by_metrics(self, team_m: dict, opp_m: dict, data: dict) -> str:
-        dsi  = team_m["defensive_solidity_index"]
-        osi  = team_m["offensive_output_index"]
+        pss     = team_m["passing_stability_index"]
+        osi     = team_m["offensive_output_index"]
+        dsi     = team_m["defensive_solidity_index"]
         opp_osi = opp_m["offensive_output_index"]
-        opp_dsi = opp_m["defensive_solidity_index"]
-        poss = team_m["possession_share"]
-        fat  = data.get("fatigue_score", 0.30)
+        fat     = data.get("fatigue_score", 0.30)
+        home    = 1 if data.get("home_away") == "home" else 0
 
-        if dsi < 0.40 and opp_osi > 0.55:
-            return "4-4-1-1"   # double defensive block, hold shape
+        # Build squad-level trait aggregates
+        players  = data.get("players", [])
+        sq_off   = 0.0  # offensive tendency
+        sq_def   = 0.0  # defensive tendency
+        sq_press = 0.0  # press tendency
+        sq_prog  = 0.0  # progressive tendency
+        sq_air   = 0.0  # aerial tendency
+        n        = max(len(players), 1)
+
+        for p in players:
+            tp = p.get("tactical_profile", {})
+            sq_off   += tp.get("offensive_tendency",   0.0)
+            sq_def   += tp.get("defensive_tendency",   0.0)
+            sq_press += tp.get("press_tendency",       0.0)
+            sq_prog  += tp.get("progressive_tendency", 0.0)
+            sq_air   += tp.get("aerial_tendency",      0.0)
+
+        sq_off   /= n
+        sq_def   /= n
+        sq_press /= n
+        sq_prog  /= n
+        sq_air   /= n
+
+        # Check fullback profiles specifically
+        # If FBs have offensive traits → they can support wide formations
+        fb_offensive = any(
+            p.get("broad_position") == "DEF"
+            and p.get("tactical_profile", {}).get("offensive_tendency", 0) > 0.3
+            for p in players
+        )
+
+        # Check if we have a target striker
+        has_target_man = any(
+            p.get("broad_position") == "FWD"
+            and "Target Man Play" in p.get("traits", [])
+            for p in players
+        )
+
+        # Check if we have a false nine
+        has_false_nine = any(
+            p.get("broad_position") == "FWD"
+            and "False Nine Tendencies" in p.get("traits", [])
+            for p in players
+        )
+
+        # Check CDM traits — deep playmaker → double pivot suits them
+        has_deep_playmaker = any(
+            p.get("specific_position") == "CDM"
+            and "Deep Playmaker" in p.get("traits", [])
+            for p in players
+        )
+
+        # ── Edge cases first ──
+        if dsi < 0.45 and opp_osi > 0.55:
+            return "4-4-1-1"   # defensive emergency
+
         if fat > 0.60 and opp_osi > 0.45:
-            return "4-1-4-1"   # compact, less pressing required
-        if osi > 0.55 and opp_dsi < 0.40:
-            return "3-4-3"     # attacking overload when opponent is open
-        if poss > 0.55 and dsi > 0.55:
-            return "4-2-3-1"   # possession base with double pivot
-        if osi < 0.35 and opp_osi < 0.40:
-            return "4-4-2"     # balanced, neither side dominant
-        return "4-3-3"         # default — most versatile
+            return "4-1-4-1"   # fatigue — compact shape
+
+        # ── Trait-informed decisions ──
+        if has_target_man and sq_air > 0.2:
+            # Direct aerial threat → 4-4-2 or 4-5-1 with target man
+            return "4-4-2"
+
+        if has_false_nine and pss >= 0.75:
+            # False nine needs possession-comfortable squad
+            return "4-3-3"
+
+        if has_deep_playmaker and dsi > 0.50:
+            # Deep playmaker CDM → 4-2-3-1 gives him protection
+            return "4-2-3-1"
+
+        if fb_offensive and sq_prog > 0.2 and osi > 0.45:
+            # Attacking fullbacks → 4-3-3 lets them overlap freely
+            return "4-3-3"
+
+        if sq_def > 0.25 and opp_osi > 0.50:
+            # Defensively-minded squad vs strong opponent
+            return "4-4-2"
+
+        # ── Metric-based fallbacks (data-informed from StatsBomb) ──
+        if pss >= 0.77:
+            return "4-3-3"
+
+        if pss < 0.77 and opp_osi >= 0.50:
+            return "4-4-2"
+
+        if home == 1:
+            return "4-2-3-1"
+
+        return "4-4-2"
 
     def _build_feature_vector(self, feature_names, team_m, opp_m, roll_m, home_aw) -> list:
         PKL_METRICS = [

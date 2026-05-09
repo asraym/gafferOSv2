@@ -30,8 +30,23 @@ class TacticalEngine:
         data = self.ranker.rank(data)           # needs to run before calculator (provides fatigue_score)
         data = self.calculator.calculate(data)
         data = self.reasoner.reason(data)
+        data = self._fill_squad(data)
         data = self.explainer.explain(data)
         return self._build_response(data)
+    def _fill_squad(self, data: dict) -> dict:
+        players    = data.get("players", [])
+        formation  = data.get("recommended_formation", "4-3-3")
+        form_scores = {p["player_id"]: p.get("form_score") for p in players}
+
+        slots = self.ranker.FORMATION_SLOTS.get(formation, self.ranker.FORMATION_SLOTS["4-3-3"])
+        starting_xi, used_ids = self.ranker._fill_xi(players, slots, form_scores)
+        bench = [p for p in players if p["player_id"] not in used_ids]
+        rotation = self.ranker._generate_rotation(starting_xi, bench, data.get("team_fatigue_score", 0.30))
+
+        data["starting_xi"]          = starting_xi
+        data["bench"]                = bench
+        data["rotation_suggestions"] = rotation
+        return data
 
     def _build_response(self, data: dict) -> dict:
         return {

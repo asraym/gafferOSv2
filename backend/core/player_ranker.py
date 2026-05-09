@@ -1,4 +1,5 @@
 from collections import defaultdict
+from core.player_traits import get_tactical_profile 
 
 
 FORMATION_SLOTS = {
@@ -27,33 +28,30 @@ class PlayerRanker:
     Fills XI slots for the recommended formation.
     Generates rotation suggestions for fatigued or low-form players.
     """
+    FORMATION_SLOTS = FORMATION_SLOTS
 
     def rank(self, data: dict) -> dict:
         players   = data.get("players", [])
         snapshots = data.get("snapshots", [])
-        formation = data.get("recommended_formation", "4-3-3")
 
         # Compute per-player form scores from snapshots
         form_scores = self._compute_form_scores(snapshots)
 
-        # Attach form score to each player dict
+        # Attach form score and tactical profile to each player
         for p in players:
-            p["form_score"] = form_scores.get(p["player_id"], None)
+            p["form_score"]      = form_scores.get(p["player_id"], None)
+            traits               = p.get("traits", [])
+            p["tactical_profile"] = get_tactical_profile(traits) if traits else {}
 
         # Estimate team fatigue score (feeds into tactical reasoner context)
-        fatigue = self._compute_fatigue(players)
+        fatigue          = self._compute_fatigue(players)
         data["fatigue_score"] = fatigue
 
-        slots = FORMATION_SLOTS.get(formation, FORMATION_SLOTS["4-3-3"])
-        starting_xi, used_ids = self._fill_xi(players, slots, form_scores)
-        bench = [p for p in players if p["player_id"] not in used_ids]
-
-        rotation_suggestions = self._generate_rotation(starting_xi, bench, fatigue)
-
-        data["starting_xi"]          = starting_xi
-        data["bench"]                = bench
-        data["rotation_suggestions"] = rotation_suggestions
-        data["team_fatigue_score"]   = fatigue
+        # NOTE: formation is not known yet at this stage — TacticalReasoner runs after us
+        # XI selection happens in a second pass after formation is decided
+        # Store players + fatigue now, XI filled later
+        data["players"]        = players
+        data["team_fatigue_score"] = fatigue
         return data
 
     # ------------------------------------------------------------------

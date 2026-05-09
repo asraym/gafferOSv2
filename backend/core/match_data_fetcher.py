@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from db.models import (
     Match, Player, PlayerMatchSnapshot, PlayerSeasonStats,
-    OppositionProfile, MatchTeamStats, Season
+    OppositionProfile, MatchTeamStats, Season, PlayerPositionalAnswers
 )
 
 
@@ -49,6 +49,9 @@ class MatchDataFetcher:
         )
         result = []
         for player, stats in rows:
+            traits = self._fetch_player_traits(
+                db, player.id, season_id, player.specific_position
+            )
             result.append({
                 "player_id": player.id,
                 "name": player.name,
@@ -56,6 +59,7 @@ class MatchDataFetcher:
                 "specific_position": player.specific_position,
                 "secondary_position": player.secondary_position,
                 "jersey_number": player.jersey_number,
+                "traits": traits,
                 # Season cumulative stats
                 "season_goals": stats.goals or 0,
                 "season_assists": stats.assists or 0,
@@ -152,3 +156,17 @@ class MatchDataFetcher:
             "avg_transition_time": row.avg_transition_time,
             "defensive_line_height": row.defensive_line_height,
         }
+    def _fetch_player_traits(self, db: Session, player_id: int, season_id: int, specific_position: str) -> list:
+        saved = (
+            db.query(PlayerPositionalAnswers)
+            .filter(
+                PlayerPositionalAnswers.player_id == player_id,
+                PlayerPositionalAnswers.season_id == season_id,
+                PlayerPositionalAnswers.position == specific_position
+            )
+            .first()
+        )
+        if not saved:
+            return []
+        return saved.answers.get("traits", [])
+        
