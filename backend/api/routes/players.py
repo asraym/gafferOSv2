@@ -109,7 +109,7 @@ def register_player(request: PlayerRegistrationRequest, db: Session = Depends(ge
         ).first()
 
         season_stats_created = False
-        season_label = active_season.name
+        season_label = active_season.label
 
         if active_season:
             stats_row = PlayerSeasonStats(
