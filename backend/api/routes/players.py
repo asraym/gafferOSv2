@@ -68,71 +68,76 @@ class PlayerRegistrationResponse(BaseModel):
 
 @router.post("/players/register", response_model=PlayerRegistrationResponse)
 def register_player(request: PlayerRegistrationRequest, db: Session = Depends(get_db)):
-    club = db.query(Club).filter(Club.id == request.club_id).first()
-    if not club:
-        raise HTTPException(status_code=404, detail="Club not found.")
+    try:
+        club = db.query(Club).filter(Club.id == request.club_id).first()
+        if not club:
+            raise HTTPException(status_code=404, detail="Club not found.")
 
-    team = db.query(Team).filter(Team.id == request.team_id).first()
-    if not team:
-        raise HTTPException(status_code=404, detail="Team not found.")
+        team = db.query(Team).filter(Team.id == request.team_id).first()
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found.")
 
-    if request.broad_position not in VALID_BROAD:
-        raise HTTPException(status_code=400, detail=f"Invalid broad position. Must be one of {VALID_BROAD}")
+        if request.broad_position not in VALID_BROAD:
+            raise HTTPException(status_code=400, detail=f"Invalid broad position. Must be one of {VALID_BROAD}")
 
-    if request.specific_position not in VALID_SPECIFIC:
-        raise HTTPException(status_code=400, detail=f"Invalid specific position. Must be one of {VALID_SPECIFIC}")
+        if request.specific_position not in VALID_SPECIFIC:
+            raise HTTPException(status_code=400, detail=f"Invalid specific position. Must be one of {VALID_SPECIFIC}")
 
-    dob = None
-    if request.date_of_birth:
-        try:
-            dob = date.fromisoformat(request.date_of_birth)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
+        dob = None
+        if request.date_of_birth:
+            try:
+                dob = date.fromisoformat(request.date_of_birth)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
 
-    player = Player(
-        club_id             = request.club_id,
-        name                = request.name,
-        broad_position      = request.broad_position,
-        specific_position   = request.specific_position,
-        secondary_position  = request.secondary_position,
-        jersey_number       = request.jersey_number,
-        nationality         = request.nationality,
-        date_of_birth       = dob,
-    )
-    db.add(player)
-    db.flush()
-
-    active_season = db.query(Season).filter(
-        Season.club_id   == request.club_id,
-        Season.is_active == True
-    ).first()
-
-    season_stats_created = False
-    season_label = active_season.name
-
-    if active_season:
-        stats_row = PlayerSeasonStats(
-            player_id = player.id,
-            season_id = active_season.id,
-            team_id   = request.team_id,
+        player = Player(
+            club_id             = request.club_id,
+            name                = request.name,
+            broad_position      = request.broad_position,
+            specific_position   = request.specific_position,
+            secondary_position  = request.secondary_position,
+            jersey_number       = request.jersey_number,
+            nationality         = request.nationality,
+            date_of_birth       = dob,
         )
-        db.add(stats_row)
-        season_stats_created = True
-        season_label = active_season.label
+        db.add(player)
+        db.flush()
 
-    db.commit()
-    db.refresh(player)
+        active_season = db.query(Season).filter(
+            Season.club_id   == request.club_id,
+            Season.is_active == True
+        ).first()
 
-    return PlayerRegistrationResponse(
-        player_id            = player.id,
-        name                 = player.name,
-        broad_position       = player.broad_position,
-        specific_position    = player.specific_position,
-        jersey_number        = player.jersey_number,
-        season_stats_created = season_stats_created,
-        season_label         = season_label,
-        message              = f"{player.name} registered successfully. Player ID: {player.id}"
-    )
+        season_stats_created = False
+        season_label = active_season.name
+
+        if active_season:
+            stats_row = PlayerSeasonStats(
+                player_id = player.id,
+                season_id = active_season.id,
+                team_id   = request.team_id,
+            )
+            db.add(stats_row)
+            season_stats_created = True
+            season_label = active_season.label
+
+        db.commit()
+        db.refresh(player)
+
+        return PlayerRegistrationResponse(
+            player_id            = player.id,
+            name                 = player.name,
+            broad_position       = player.broad_position,
+            specific_position    = player.specific_position,
+            jersey_number        = player.jersey_number,
+            season_stats_created = season_stats_created,
+            season_label         = season_label,
+            message              = f"{player.name} registered successfully. Player ID: {player.id}"
+        )
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # --- CSV Import ---
