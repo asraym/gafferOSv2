@@ -1,7 +1,8 @@
 from sqlalchemy.orm import Session
 from db.models import (
     Match, Player, PlayerMatchSnapshot, PlayerSeasonStats,
-    OppositionProfile, MatchTeamStats, Season, PlayerPositionalAnswers
+    OppositionProfile, MatchTeamStats, Season, PlayerPositionalAnswers, 
+    PlayerPhysicalAttributes, PlayerAttributeProfile
 )
 
 
@@ -52,6 +53,7 @@ class MatchDataFetcher:
             traits = self._fetch_player_traits(
                 db, player.id, season_id, player.specific_position
             )
+            attributes = self._fetch_player_attributes(db, player.id, season_id)
             result.append({
                 "player_id": player.id,
                 "name": player.name,
@@ -60,6 +62,7 @@ class MatchDataFetcher:
                 "secondary_position": player.secondary_position,
                 "jersey_number": player.jersey_number,
                 "traits": traits,
+                "attributes": attributes,
                 # Season cumulative stats
                 "season_goals": stats.goals or 0,
                 "season_assists": stats.assists or 0,
@@ -169,4 +172,33 @@ class MatchDataFetcher:
         if not saved:
             return []
         return saved.answers.get("traits", [])
-        
+    
+    def _fetch_player_attributes(self, db: Session, player_id: int, season_id: int) -> dict:
+        profile = (
+            db.query(PlayerAttributeProfile)
+            .filter(
+                PlayerAttributeProfile.player_id == player_id,
+                PlayerAttributeProfile.season_id == season_id,
+            )
+            .first()
+        )
+        if not profile:
+            return {}
+        return {
+            "pace":          profile.pace,
+            "acceleration":  profile.acceleration,
+            "stamina":       profile.stamina,
+            "jumping":       profile.jumping,
+            "strength":      profile.strength,
+            "heading":       profile.heading,
+            "finishing":     profile.finishing,
+            "passing":       profile.passing,
+            "creativity":    profile.creativity,
+            "tackling":      profile.tackling,
+            "positioning":   profile.positioning,
+            "work_rate":     profile.work_rate,
+            "aggression":    profile.aggression,
+            "role_rating":   profile.role_rating,
+            "overall_rating": profile.overall_rating,
+        }
+            

@@ -103,21 +103,19 @@ class PlayerRanker:
     # ------------------------------------------------------------------
 
     def _compute_fatigue(self, players: list) -> float:
-        """
-        Estimates team fatigue from average minutes played in recent snapshots.
-        Players with no snapshot data are assumed fresh (0.0 fatigue).
-        """
         fatigue_scores = []
         for p in players:
-            fs = p.get("form_score")
-            # Minutes-based fatigue: high minutes recently = higher fatigue risk
-            # We fold this into a simple proxy: if form_score is None → fresh
-            if fs is not None:
-                # Heavy minutes proxy — using season matches as heuristic
+            attrs = p.get("attributes", {})
+            stamina = attrs.get("stamina")
+            if stamina is not None:
+                # High stamina = low fatigue risk
+                # Stamina 20 = 0.05 fatigue, stamina 5 = 0.75 fatigue
+                fatigue_scores.append(round(1.0 - (stamina / 20.0) * 0.95, 3))
+            else:
                 matches = p.get("season_matches_played", 0)
                 fatigue_scores.append(min(matches / 30.0, 1.0))
         if not fatigue_scores:
-            return 0.30  # default
+            return 0.30
         return round(sum(fatigue_scores) / len(fatigue_scores), 3)
 
     # ------------------------------------------------------------------
@@ -157,21 +155,27 @@ class PlayerRanker:
                 if p.get("secondary_position") in spec_options:
                     candidates.append(p)
 
-        # Tertiary: fill from anyone (positional emergency)
+        # Tertiary: fill from anyone
         if len(candidates) < count:
             for p in players:
                 if p["player_id"] in used_ids or p in candidates:
                     continue
                 candidates.append(p)
 
-        # Sort by form_score if available, else by season goals as proxy
-        candidates.sort(
-            key=lambda p: (
-                form_scores.get(p["player_id"]) if form_scores.get(p["player_id"]) is not None
-                else p["season_goals"] / max(p["season_matches_played"], 1)
-            ),
-            reverse=True
-        )
+        # Sort priority: overall_rating → role_rating → form_score → season goals proxy
+        def sort_key(p):
+            attrs = p.get("attributes", {})
+            if attrs.get("overall_rating") is not None:
+                return (3, attrs["overall_rating"])
+            if attrs.get("role_rating") is not None:
+                return (2, attrs["role_rating"])
+            fs = form_scores.get(p["player_id"])
+            if fs is not None:
+                return (1, fs * 20)   # scale to 1-20 for comparison
+            matches = max(p.get("season_matches_played", 0), 1)
+            return (0, p.get("season_goals", 0) / matches)
+
+        candidates.sort(key=sort_key, reverse=True)
         return candidates[:count]
 
     # ------------------------------------------------------------------

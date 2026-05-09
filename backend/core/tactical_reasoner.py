@@ -172,6 +172,31 @@ class TacticalReasoner:
             and "Deep Playmaker" in p.get("traits", [])
             for p in players
         )
+         # Attribute-informed checks
+        # Check average pace of forwards — fast forwards suit 4-3-3 with wide play
+        fwd_pace = [
+            p.get("attributes", {}).get("pace")
+            for p in players
+            if p.get("broad_position") == "FWD"
+            and p.get("attributes", {}).get("pace") is not None
+        ]
+        avg_fwd_pace = sum(fwd_pace) / len(fwd_pace) if fwd_pace else None
+
+        # Check if we have a physically dominant striker
+        has_physical_st = any(
+            p.get("broad_position") == "FWD"
+            and p.get("attributes", {}).get("heading", 0) >= 15
+            and p.get("attributes", {}).get("strength", 0) >= 14
+            for p in players
+        )
+
+        # Fast forwards → exploit wide channels → 4-3-3
+        if avg_fwd_pace is not None and avg_fwd_pace >= 15 and osi > 0.40:
+            return "4-3-3"
+
+        # Physical dominant striker → direct play → 4-4-2 or 4-5-1
+        if has_physical_st and not has_false_nine:
+            return "4-4-2"
 
         # ── Edge cases first ──
         if dsi < 0.45 and opp_osi > 0.55:
