@@ -98,7 +98,6 @@ def register_player(request: PlayerRegistrationRequest, db: Session = Depends(ge
         jersey_number       = request.jersey_number,
         nationality         = request.nationality,
         date_of_birth       = dob,
-        is_active           = True,
     )
     db.add(player)
     db.flush()
@@ -109,7 +108,7 @@ def register_player(request: PlayerRegistrationRequest, db: Session = Depends(ge
     ).first()
 
     season_stats_created = False
-    season_label = None
+    season_label = active_season.name
 
     if active_season:
         stats_row = PlayerSeasonStats(
