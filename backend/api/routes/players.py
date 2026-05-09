@@ -4,9 +4,10 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import date
 from db.database import get_db
-from db.models import Player, PlayerSeasonStats, PlayerMatchSnapshot, Club, Team, Season, PlayerPositionalAnswers, Season
+from db.models import Player, PlayerSeasonStats, PlayerMatchSnapshot, Club, Team, Season, PlayerPositionalAnswers, PlayerPhysicalAttributes, PlayerAttributeProfile, Season
 from core.csv_importer import CSVImporter
 from core.player_traits import validate_traits, get_traits_for_position, get_tactical_profile
+from core.attribute_calculator import calculate_attributes, calculate_role_rating, calculate_overall_rating
 
 router = APIRouter()
 csv_importer = CSVImporter()
@@ -349,4 +350,124 @@ def get_player_traits(player_id: int, season_id: int, specific_position: str, db
         "available_traits":  valid_traits,
         "selected_traits":   selected_traits,
         "tactical_profile":  tactical_profile,
+    }
+
+class PhysicalAssessment(BaseModel):
+    height_cm:        Optional[float] = None
+    weight_kg:        Optional[float] = None
+    beep_test_level:  Optional[float] = None
+    sprint_time_20m:  Optional[float] = None
+    vertical_jump_cm: Optional[float] = None
+    date_assessed:    Optional[str]   = None
+@router.post("/{player_id}/physical")
+def submit_physical_assessment(
+    player_id: int,
+    payload: PhysicalAssessment,
+    db: Session = Depends(get_db)
+):
+    player = db.query(Player).filter(Player.id == player_id).first()
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found.")
+
+    active_season = db.query(Season).filter(Season.is_active == True).first()
+    if not active_season:
+        raise HTTPException(status_code=404, detail="No active season found.")
+
+    # Upsert physical attributes
+    physical = (
+        db.query(PlayerPhysicalAttributes)
+        .filter(
+            PlayerPhysicalAttributes.player_id == player_id,
+            PlayerPhysicalAttributes.season_id == active_season.id,
+        )
+        .first()
+    )
+
+    physical_dict = payload.dict()
+
+    if physical:
+        for key, val in physical_dict.items():
+            if val is not None:
+                setattr(physical, key, val)
+    else:
+        physical = PlayerPhysicalAttributes(
+            player_id = player_id,
+            season_id = active_season.id,
+            **{k: v for k, v in physical_dict.items() if v is not None}
+        )
+        db.add(physical)
+
+    db.flush()
+
+    # Build player dict for attribute calculator
+    season_stats = (
+        db.query(PlayerSeasonStats)
+        .filter(
+            PlayerSeasonStats.player_id == player_id,
+            PlayerSeasonStats.season_id == active_season.id,
+        )
+        .first()
+    )
+
+    player_data = {
+        "season_goals":            season_stats.goals or 0 if season_stats else 0,
+        "season_assists":          season_stats.assists or 0 if season_stats else 0,
+        "season_shots":            season_stats.shots or 0 if season_stats else 0,
+        "season_key_passes":       season_stats.key_passes or 0 if season_stats else 0,
+        "season_passes_completed": season_stats.passes_completed or 0 if season_stats else 0,
+        "season_passes_attempted": season_stats.passes_attempted or 0 if season_stats else 0,
+        "season_tackles":          season_stats.tackles or 0 if season_stats else 0,
+        "season_interceptions":    season_stats.interceptions or 0 if season_stats else 0,
+        "season_defensive_errors": season_stats.defensive_errors or 0 if season_stats else 0,
+        "season_saves":            season_stats.saves or 0 if season_stats else 0,
+        "season_matches_played":   season_stats.matches_played or 0 if season_stats else 0,
+    }
+
+    physical_data = {
+        "height_cm":        physical.height_cm,
+        "weight_kg":        physical.weight_kg,
+        "beep_test_level":  physical.beep_test_level,
+        "sprint_time_20m":  physical.sprint_time_20m,
+        "vertical_jump_cm": physical.vertical_jump_cm,
+    }
+
+    # Calculate attributes
+    attributes  = calculate_attributes(player_data, physical_data)
+    role_rating = calculate_role_rating(attributes, player.specific_position)
+    overall     = calculate_overall_rating(attributes, role_rating)
+
+    # Upsert attribute profile
+    profile = (
+        db.query(PlayerAttributeProfile)
+        .filter(
+            PlayerAttributeProfile.player_id == player_id,
+            PlayerAttributeProfile.season_id == active_season.id,
+        )
+        .first()
+    )
+
+    if profile:
+        for attr, val in attributes.items():
+            if val is not None:
+                setattr(profile, attr, val)
+        profile.role_rating    = role_rating
+        profile.overall_rating = overall
+    else:
+        db.add(PlayerAttributeProfile(
+            player_id      = player_id,
+            season_id      = active_season.id,
+            role_rating    = role_rating,
+            overall_rating = overall,
+            **{k: v for k, v in attributes.items() if v is not None}
+        ))
+
+    db.commit()
+
+    return {
+        "player_id":      player_id,
+        "player_name":    player.name,
+        "position":       player.specific_position,
+        "attributes":     attributes,
+        "role_rating":    role_rating,
+        "overall_rating": overall,
     }
