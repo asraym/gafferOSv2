@@ -1,100 +1,177 @@
 # gafferOSv2 ⚽
 
-A tactical intelligence system for semi-professional football teams, combining match data and machine learning to generate **data-driven insights and decision support**.
+A tactical intelligence and squad analysis platform for semi-professional football teams, combining match data, machine learning, player profiling, and rule-based tactical reasoning to generate actionable coaching insights.
 
 ---
 
 ## 🚀 Overview
 
-gafferOSv2 uses historical match data (StatsBomb) and engineered performance metrics to:
+gafferOSv2 is designed to help football coaches and analysts make smarter tactical and squad decisions without requiring elite-level infrastructure.
 
-* Predict match outcomes
-* Analyze team strengths (attack vs defense dynamics)
-* Model team form and matchup differences
-* Lay the foundation for **tactical decision-making (e.g., formation adjustments)**
+The system combines:
+- Match analytics
+- Machine learning predictions
+- Player form tracking
+- Physical assessment data
+- Tactical trait profiling
+- Explainable tactical recommendations
 
----
-
-## ⚙️ Current Progress
-
-* PostgreSQL database and REST API implemented
-* 1100+ matches processed (La Liga, UCL, Premier League)
-* 30+ engineered features from match data
-* Rolling form and team-vs-opponent differential features
-* Exploratory Data Analysis completed
-* Initial XGBoost model trained (WIP, ~74% accuracy)
+to simulate a lightweight “football operations system” for clubs.
 
 ---
 
-## 📊 Key Insights
+## 🧠 Core Philosophy
 
-* Match outcomes are primarily driven by:
+Instead of asking:
 
-  * Offensive output
-  * Defensive solidity
-  * Shot quality
+> “What is the best formation?”
 
-* Home advantage has a measurable impact
+gafferOS asks:
 
-* Several features are highly correlated, requiring pruning
+> **“What tactical adjustment best fits this squad, opponent, and match context?”**
 
-* Teams exhibit strong tactical identity:
+The engine evaluates:
+- Team strengths and weaknesses
+- Opposition style
+- Squad form and fatigue
+- Tactical player traits
+- Physical capabilities
+- Match context (home/away, pressing intensity, etc.)
 
-  * ~63% of matches use their most common formation
+to recommend tactical setups and player selections.
 
 ---
 
-## 🧠 Core Idea
+## ⚙️ Current Features
 
-Rather than asking:
+### 📊 Match Intelligence
+- Match outcome prediction using engineered StatsBomb features
+- 30+ tactical and statistical metrics
+- Rolling form analysis
+- Team vs opponent differential modeling
+- Home/away contextual adjustments
 
-> “Which formation is best?”
+### 🧬 Player Profiling System
+- Coach-assigned tactical trait system
+- Position-specific trait banks
+- Tactical tendency scoring
+- Conflict validation for incompatible traits
 
-gafferOS aims to answer:
+### 🏃 Physical Assessment Engine
+Converts real-world testing data into Football Manager-style attributes:
+- Pace
+- Acceleration
+- Stamina
+- Strength
+- Heading
+- Jumping
 
-> **“What is the best tactical adjustment for this team in this situation?”**
+based on:
+- Sprint times
+- Beep tests
+- Vertical jump
+- Height/weight
 
-This is achieved by:
+### 🎯 Tactical Reasoning Engine
+Hybrid ML + rule-based tactical decision system:
+- Formation recommendations
+- Press intensity logic
+- Tactical focus selection
+- Squad rotation considerations
+- Trait-aware tactical reasoning
 
-* Learning team tendencies (form + formation identity)
-* Comparing realistic tactical variations
-* Evaluating outcomes using the trained model
+### 📈 Explainable Outputs
+The system explains *why* recommendations are made instead of producing black-box predictions.
+
+Example:
+> “A 4-3-3 is recommended due to strong progressive passing profiles and high squad pace.”
+
+---
+
+## 📊 Project Progress
+
+### Completed
+- PostgreSQL schema design
+- FastAPI backend architecture
+- Match ingestion pipeline
+- Feature engineering pipeline
+- XGBoost outcome model
+- Tactical engine v1
+- Player trait system
+- Physical-to-attribute calculator
+- Squad form tracking
+- REST API endpoints
+
+### In Progress
+- Tactical explainer upgrade
+- Rotation advisor
+- Deployment
+- React frontend
+
+### Planned
+- Matchup-specific tactical adaptation
+- Multi-club support
+- Season management
+- Advanced visual dashboards
 
 ---
 
 ## 🛠️ Tech Stack
 
-Python • FastAPI • PostgreSQL • XGBoost
+### Backend
+- Python
+- FastAPI
+- PostgreSQL
+- SQLAlchemy
+
+### Machine Learning
+- XGBoost
+- Pandas
+- NumPy
+- Scikit-learn
+
+### Data
+- StatsBomb Open Data
 
 ---
 
-## 🔄 Pipeline
+## 🔄 System Pipeline
 
-```
-Data → Feature Engineering → ML Model → API → Tactical Insights
+```text
+Match Data
+    ↓
+Feature Engineering
+    ↓
+ML Inference + Tactical Metrics
+    ↓
+Trait & Attribute Analysis
+    ↓
+Tactical Reasoning Engine
+    ↓
+Explainable Recommendations
 ```
 
 ---
 
-## 📁 Structure
+## 📁 Project Structure
 
-```
+```text
 backend/
-├── api/        # REST endpoints
-├── core/       # business logic
-├── db/         # database models
-├── ml/         # data + training pipeline
+├── api/              # REST API routes
+├── core/             # tactical and business logic
+├── db/               # database models and setup
+├── ml/               # ML training + feature engineering
 └── main.py
 ```
 
 ---
 
-## 🎯 Goal
+## 🎯 Vision
 
-To make **practical tactical analytics** accessible to teams without elite-level resources.
+To provide semi-professional clubs with accessible tactical intelligence tools that are normally only available to elite football organizations.
 
 ---
 
-## 📄 Status
+## 📄 Current Status
 
-Active development — evolving from prediction system to **tactical decision engine**
+Active development — transitioning from a prediction-focused system into a full tactical decision-support platform.
