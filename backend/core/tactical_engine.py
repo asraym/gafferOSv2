@@ -41,7 +41,8 @@ class TacticalEngine:
         slots = self.ranker.FORMATION_SLOTS.get(formation, self.ranker.FORMATION_SLOTS["4-3-3"])
         starting_xi, used_ids = self.ranker._fill_xi(players, slots, form_scores)
         bench = [p for p in players if p["player_id"] not in used_ids]
-        rotation = self.ranker._generate_rotation(starting_xi, bench, data.get("team_fatigue_score", 0.30))
+        rotation = self.ranker._generate_rotation(starting_xi, bench, data.get("team_fatigue_score", 0.30), data.get("press_intensity", "Medium")
+        )
 
         data["starting_xi"]          = starting_xi
         data["bench"]                = bench

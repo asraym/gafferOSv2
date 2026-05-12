@@ -182,7 +182,7 @@ class PlayerRanker:
     # Rotation suggestions
     # ------------------------------------------------------------------
 
-    def _generate_rotation(self, starting_xi: list, bench: list, fatigue: float) -> list:
+    def _generate_rotation(self, starting_xi: list, bench: list, fatigue: float, press_intensity: str = "Medium") -> list:
         suggestions = []
 
         if not starting_xi:
@@ -193,11 +193,12 @@ class PlayerRanker:
             return suggestions
 
         for p in starting_xi:
-            fs  = p.get("form_score")
-            pid = p["player_id"]
-            name = p["name"]
-            pos  = p.get("specific_position", p["broad_position"])
+            fs    = p.get("form_score")
+            name  = p["name"]
+            pos   = p.get("specific_position", p["broad_position"])
+            attrs = p.get("attributes", {})
 
+            # Flag 1 — low form score
             if fs is not None and fs < 0.35:
                 replacement = self._find_bench_cover(bench, p["broad_position"])
                 if replacement:
@@ -210,6 +211,51 @@ class PlayerRanker:
                 else:
                     suggestions.append(
                         f"{name} ({pos}) — low form score {fs:.2f}. No bench cover available."
+                    )
+
+            # Flag 2 — low stamina in a high press match
+            stamina = attrs.get("stamina")
+            if stamina is not None and stamina < 10 and press_intensity == "High":
+                suggestions.append(
+                    f"{name} ({pos}) — stamina {stamina:.1f} may not sustain high press for 90 mins. "
+                    f"Plan early substitution."
+                )
+
+            # Flag 3 — low role_rating means wrong position cover
+            role_rating = attrs.get("role_rating")
+            if role_rating is not None and role_rating < 12:
+                suggestions.append(
+                    f"{name} ({pos}) — role rating {role_rating:.1f} suggests positional mismatch. "
+                    f"Monitor performance closely."
+                )
+
+        # Flag 4 — bench player rated higher than starter in same broad position
+        xi_by_pos    = {}
+        bench_by_pos = {}
+
+        for p in starting_xi:
+            broad   = p["broad_position"]
+            overall = p.get("attributes", {}).get("overall_rating")
+            if overall is not None:
+                if broad not in xi_by_pos or overall > xi_by_pos[broad]["overall"]:
+                    xi_by_pos[broad] = {"name": p["name"], "overall": overall}
+
+        for p in bench:
+            broad   = p["broad_position"]
+            overall = p.get("attributes", {}).get("overall_rating")
+            if overall is not None:
+                if broad not in bench_by_pos or overall > bench_by_pos[broad]["overall"]:
+                    bench_by_pos[broad] = {"name": p["name"], "overall": overall}
+
+        for broad in xi_by_pos:
+            if broad in bench_by_pos:
+                starter = xi_by_pos[broad]
+                benched = bench_by_pos[broad]
+                diff    = benched["overall"] - starter["overall"]
+                if diff >= 1.5:
+                    suggestions.append(
+                        f"{benched['name']} ({broad}, {benched['overall']:.1f}) rated higher than "
+                        f"{starter['name']} ({starter['overall']:.1f}) — consider starting."
                     )
 
         if not suggestions:
