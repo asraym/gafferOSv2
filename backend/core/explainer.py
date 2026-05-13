@@ -1,3 +1,9 @@
+import random
+
+# ---------------------------------------------------------------------------
+# Data mode headers — fixed, no variation (these are warnings not narrative)
+# ---------------------------------------------------------------------------
+
 DATA_MODE_HEADERS = {
     "full":    None,
     "basic":   (
@@ -12,10 +18,100 @@ DATA_MODE_HEADERS = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Variation pools
+# ---------------------------------------------------------------------------
+
+FORMATION_TRAIT_INTROS = [
+    "Shaped by {detail}.",
+    "{detail} makes this the natural shape.",
+    "The {formation} suits the squad — {detail}.",
+    "Going with {formation} — {detail}.",
+    "Built around {detail}.",
+    "{detail} points clearly to the {formation}.",
+]
+
+FORMATION_PACE_NOTES = [
+    "pace of {names} suits wide forward roles",
+    "{names} have the legs to hurt teams in behind on the flanks",
+    "width and pace of {names} makes the three-forward shape the right call",
+    "{names} give genuine threat in behind — the {formation} unlocks that",
+]
+
+FORMATION_PHYSICAL_NOTES = [
+    "two-striker partnership provides physical presence",
+    "double striker axis gives a direct aerial option up top",
+    "front two offer physicality and hold-up — suits the 4-4-2 structure",
+    "the partnership up front can cause problems aerially and in behind",
+]
+
+HEADING_NOTES = [
+    "{name} heading {val:.1f} — aerial dominance from set pieces",
+    "{name} wins headers at both ends — heading {val:.1f}",
+    "Set piece threat through {name} — heading {val:.1f}",
+    "{name} is a genuine aerial threat — heading rated {val:.1f}",
+    "Aerial platform: {name} heading {val:.1f}",
+]
+
+PACE_NOTES = [
+    "{name} pace {val:.1f} — exploit space in behind",
+    "{name} has genuine pace to burn — {val:.1f}",
+    "Threat in behind through {name} — pace {val:.1f}",
+    "{name} pace {val:.1f} — can stretch any defensive line",
+    "Pace of {name} ({val:.1f}) is a weapon on the counter",
+]
+
+PASSING_NOTES = [
+    "{name} passing {val:.1f} — creative outlet in midfield",
+    "{name} can pick passes others can't — passing {val:.1f}",
+    "Midfield creativity through {name} — passing {val:.1f}",
+    "{name} passing {val:.1f} — the engine room of the build-up",
+    "Distribution hub: {name} passing {val:.1f}",
+]
+
+FINISHING_NOTES = [
+    "{name} finishing {val:.1f} — clinical in front of goal",
+    "{name} is a genuine goal threat — finishing {val:.1f}",
+    "Clinical edge up front: {name} finishing {val:.1f}",
+    "{name} finishing {val:.1f} — punishes half chances",
+    "Goals will come through {name} — finishing rated {val:.1f}",
+]
+
+STAMINA_WARNING_NOTES = [
+    "{name} ({pos}) stamina {val:.1f} — may struggle to maintain press intensity for 90 mins",
+    "{name} ({pos}) has low stamina ({val:.1f}) — high press could leave them exposed late on",
+    "Watch {name} ({pos}) closely — stamina {val:.1f} is a concern at high press intensity",
+    "{name} ({pos}) stamina {val:.1f} — consider subbing before the press drops",
+    "Fitness flag: {name} ({pos}) stamina {val:.1f} in a high press system",
+]
+
+BENCH_UPGRADE_NOTES = [
+    "{benched} ({broad}, {b_rating:.1f}) rated higher than {starter} ({s_rating:.1f}) — consider starting",
+    "{benched} ({b_rating:.1f}) is sitting on the bench ahead of {starter} ({s_rating:.1f}) at {broad} — worth reconsidering",
+    "Upgrade available at {broad}: {benched} ({b_rating:.1f}) vs {starter} ({s_rating:.1f}) starting",
+    "{benched} outrates {starter} at {broad} ({b_rating:.1f} vs {s_rating:.1f}) — selection worth revisiting",
+    "Bench has a stronger option at {broad}: {benched} {b_rating:.1f} over {starter} {s_rating:.1f}",
+]
+
+
+# ---------------------------------------------------------------------------
+# Helper
+# ---------------------------------------------------------------------------
+
+def _pick(pool: list, **kwargs) -> str:
+    return random.choice(pool).format(**kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Explainer
+# ---------------------------------------------------------------------------
+
 class Explainer:
     """
     Builds the plain English reasoning report from all engine layers.
     Trait and attribute aware — mentions specific players where relevant.
+    Picks up matchup layer flags (exploits, vulnerabilities, general notes).
+    Language varies per run via random template selection.
     """
 
     def explain(self, data: dict) -> dict:
@@ -45,9 +141,9 @@ class Explainer:
             f"Win {win_p:.0%}  ·  Draw {draw_p:.0%}  ·  Loss {loss_p:.0%}."
         )
 
-        # Formation rationale — mention traits that drove the decision
-        formation = d.get("recommended_formation", "4-3-3")
-        scores    = d.get("formation_scores", {})
+        # Formation rationale
+        formation        = d.get("recommended_formation", "4-3-3")
+        scores           = d.get("formation_scores", {})
         formation_reason = self._formation_reason(d)
 
         if scores and mode != "default":
@@ -103,6 +199,21 @@ class Explainer:
             if notes:
                 lines.append(f"Scouting: {opp} " + ", ".join(notes) + ".")
 
+        # --- Matchup layer output ---
+        exploits       = d.get("matchup_exploits", [])
+        vulnerabilities = d.get("matchup_vulnerabilities", [])
+        general_notes  = d.get("matchup_general_notes", [])
+
+        if exploits:
+            lines.append("Exploit: " + " | ".join(exploits))
+
+        if vulnerabilities:
+            lines.append("Watch out: " + " | ".join(vulnerabilities))
+
+        if general_notes:
+            for note in general_notes:
+                lines.append(note)
+
         # Fatigue
         fatigue = d.get("team_fatigue_score", d.get("fatigue_score", 0.30))
         press   = d.get("press_intensity", "Medium")
@@ -136,22 +247,17 @@ class Explainer:
         return "\n".join(lines)
 
     # ------------------------------------------------------------------
-    # Formation reason — trait-driven explanation
+    # Formation reason
     # ------------------------------------------------------------------
 
     def _formation_reason(self, d: dict) -> str:
-        """
-        Looks at starting XI traits and attributes to explain why the
-        formation was chosen in plain English.
-        """
-        formation  = d.get("recommended_formation", "4-3-3")
-        xi         = d.get("starting_xi", [])
+        formation = d.get("recommended_formation", "4-3-3")
+        xi        = d.get("starting_xi", [])
         if not xi:
             return ""
 
         notes = []
 
-        # Look for specific traits in the XI that justify the formation
         trait_mentions = {
             "Ball Playing Defender":  "builds from the back",
             "Progressive Passer":     "progresses play from deep",
@@ -168,12 +274,14 @@ class Explainer:
             for trait, description in trait_mentions.items():
                 if trait in traits and description not in mentioned:
                     mentioned.append(f"{p['name']}'s {trait} trait ({description})")
-                    break  # one mention per player
+                    break
 
         if mentioned:
-            notes.append("Shaped by " + ", ".join(mentioned[:2]))  # cap at 2 to keep it concise
+            detail = ", ".join(mentioned[:2])
+            notes.append(
+                _pick(FORMATION_TRAIT_INTROS, detail=detail, formation=formation)
+            )
 
-        # Attribute-driven reason
         if formation == "4-3-3":
             fast_fwds = [
                 p for p in xi
@@ -183,7 +291,9 @@ class Explainer:
             ]
             if fast_fwds:
                 names = " and ".join(p["name"] for p in fast_fwds[:2])
-                notes.append(f"pace of {names} suits wide forward roles")
+                notes.append(
+                    _pick(FORMATION_PACE_NOTES, names=names, formation=formation)
+                )
 
         elif formation == "4-4-2":
             sts = [p for p in xi if p["broad_position"] == "FWD"]
@@ -194,15 +304,15 @@ class Explainer:
                     if p.get("attributes", {}).get("heading") is not None
                 ]
                 if heading_vals and max(heading_vals) >= 15:
-                    notes.append("two-striker partnership provides physical presence")
+                    notes.append(_pick(FORMATION_PHYSICAL_NOTES))
 
         if not notes:
             return ""
 
-        return ". ".join(notes) + "."
+        return " ".join(notes)
 
     # ------------------------------------------------------------------
-    # Attribute callouts — highlight standout players
+    # Attribute callouts
     # ------------------------------------------------------------------
 
     def _attribute_callouts(self, d: dict) -> list:
@@ -217,30 +327,26 @@ class Explainer:
             if not attrs:
                 continue
 
-            # Heading dominance for CBs and STs
             heading = attrs.get("heading")
             if heading and heading >= 17 and pos in ["CB", "ST", "CF"]:
-                notes.append(f"{name} heading {heading:.1f} — aerial dominance from set pieces")
+                notes.append(_pick(HEADING_NOTES, name=name, val=heading))
 
-            # Pace for wide players and forwards
             pace = attrs.get("pace")
             if pace and pace >= 17 and pos in ["RW", "LW", "RB", "LB", "ST", "CF"]:
-                notes.append(f"{name} pace {pace:.1f} — exploit space in behind")
+                notes.append(_pick(PACE_NOTES, name=name, val=pace))
 
-            # Passing for playmakers
             passing = attrs.get("passing")
             if passing and passing >= 17 and pos in ["CM", "CAM", "CDM"]:
-                notes.append(f"{name} passing {passing:.1f} — creative outlet in midfield")
+                notes.append(_pick(PASSING_NOTES, name=name, val=passing))
 
-            # Finishing for strikers
             finishing = attrs.get("finishing")
             if finishing and finishing >= 17 and pos in ["ST", "CF", "SS"]:
-                notes.append(f"{name} finishing {finishing:.1f} — clinical in front of goal")
+                notes.append(_pick(FINISHING_NOTES, name=name, val=finishing))
 
-        return notes[:3]  # cap at 3 to keep report readable
+        return notes[:3]
 
     # ------------------------------------------------------------------
-    # Stamina warnings for high press
+    # Stamina warnings
     # ------------------------------------------------------------------
 
     def _stamina_warnings(self, d: dict) -> list:
@@ -252,8 +358,7 @@ class Explainer:
             if stamina is not None and stamina < 10:
                 pos = p.get("specific_position", p.get("broad_position", ""))
                 flags.append(
-                    f"{p['name']} ({pos}) stamina {stamina:.1f} — "
-                    f"may struggle to maintain press intensity for 90 mins"
+                    _pick(STAMINA_WARNING_NOTES, name=p["name"], pos=pos, val=stamina)
                 )
 
         return flags
@@ -270,19 +375,18 @@ class Explainer:
         if not xi or not bench:
             return flags
 
-        # Group starters and bench by broad position
         xi_by_pos    = {}
         bench_by_pos = {}
 
         for p in xi:
-            broad = p["broad_position"]
+            broad   = p["broad_position"]
             overall = p.get("attributes", {}).get("overall_rating")
             if overall is not None:
                 if broad not in xi_by_pos or overall > xi_by_pos[broad]["overall"]:
                     xi_by_pos[broad] = {"name": p["name"], "overall": overall}
 
         for p in bench:
-            broad = p["broad_position"]
+            broad   = p["broad_position"]
             overall = p.get("attributes", {}).get("overall_rating")
             if overall is not None:
                 if broad not in bench_by_pos or overall > bench_by_pos[broad]["overall"]:
@@ -295,9 +399,14 @@ class Explainer:
                 diff    = benched["overall"] - starter["overall"]
                 if diff >= 1.5:
                     flags.append(
-                        f"{benched['name']} ({broad}, {benched['overall']:.1f}) "
-                        f"rated higher than {starter['name']} ({starter['overall']:.1f}) — "
-                        f"consider starting"
+                        _pick(
+                            BENCH_UPGRADE_NOTES,
+                            benched=benched["name"],
+                            starter=starter["name"],
+                            broad=broad,
+                            b_rating=benched["overall"],
+                            s_rating=starter["overall"],
+                        )
                     )
 
         return flags
