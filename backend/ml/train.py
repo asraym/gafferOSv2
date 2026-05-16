@@ -16,12 +16,13 @@ TEAM_METRICS = [
     "defensive_line_height",
 ]
 
+# TODO issue #3 — add remaining 5 metrics once feature_engineering.py is
+# confirmed stable. Requires full re-run (~45 mins) of feature_engineering.py.
+# Metrics to add: aerial_dominance_index, press_intensity_index,
+# transition_speed_index, discipline_index (verify), defensive_line_height (verify)
+
 
 def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Add 5-match rolling averages per team sorted chronologically.
-    NaNs filled with current match value instead of dropping rows.
-    """
     df = df.copy()
     df['match_date'] = pd.to_datetime(df['match_date'])
     df = df.sort_values(['team', 'match_date']).reset_index(drop=True)
@@ -33,17 +34,12 @@ def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
             df.groupby('team')[col]
             .transform(lambda x: x.shift(1).rolling(ROLLING_WINDOW, min_periods=1).mean())
         )
-        # Fill NaN with current match value — no data lost
         df[roll_col] = rolled.fillna(df[col])
 
     return df
 
 
 def add_diff_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Add team vs opponent mismatch features.
-    These capture the actual contest, not just individual team quality.
-    """
     df = df.copy()
     for metric in TEAM_METRICS:
         team_col = f"team_{metric}"
@@ -51,57 +47,51 @@ def add_diff_features(df: pd.DataFrame) -> pd.DataFrame:
         if team_col in df.columns and opp_col in df.columns:
             df[f"diff_{metric}"] = df[team_col] - df[opp_col]
 
-    # Key matchup interactions
-    df["attack_vs_defense"] = (
-        df["team_offensive_output_index"] - df["opp_defensive_solidity_index"]
-    )
-    df["shot_quality_vs_defense"] = (
-        df["team_shot_quality_index"] - df["opp_defensive_solidity_index"]
-    )
-    df["possession_battle"] = (
-        df["team_possession_share"] - df["opp_possession_share"]
-    )
+    df["attack_vs_defense"]       = df["team_offensive_output_index"] - df["opp_defensive_solidity_index"]
+    df["shot_quality_vs_defense"] = df["team_shot_quality_index"]     - df["opp_defensive_solidity_index"]
+    df["possession_battle"]       = df["team_possession_share"]       - df["opp_possession_share"]
 
     return df
 
 
 def build_feature_list() -> list:
-    """Define the full feature set for the model."""
-    # Raw team and opponent metrics
-    team_features = [f"team_{m}" for m in TEAM_METRICS]
-    opp_features  = [f"opp_{m}"  for m in TEAM_METRICS]
-
-    # Rolling form features
-    roll_features = [f"roll_{m}" for m in TEAM_METRICS]
-
-    # Diff and interaction features
-    diff_features = [f"diff_{m}" for m in TEAM_METRICS]
-    interaction_features = [
-        "attack_vs_defense",
-        "shot_quality_vs_defense",
-        "possession_battle",
-    ]
-
-    # Home advantage
-    context_features = ["home_away"]
-
+    team_features        = [f"team_{m}" for m in TEAM_METRICS]
+    opp_features         = [f"opp_{m}"  for m in TEAM_METRICS]
+    roll_features        = [f"roll_{m}" for m in TEAM_METRICS]
+    diff_features        = [f"diff_{m}" for m in TEAM_METRICS]
+    interaction_features = ["attack_vs_defense", "shot_quality_vs_defense", "possession_battle"]
+    context_features     = ["home_away"]
     return (
-        team_features +
-        opp_features +
-        roll_features +
-        diff_features +
-        interaction_features +
-        context_features
+        team_features + opp_features + roll_features +
+        diff_features + interaction_features + context_features
     )
 
 
+def compute_class_weights(y: np.ndarray) -> np.ndarray:
+    """
+    Compute per-sample weights to correct class imbalance (#4).
+    Draws (~25% of matches) are systematically under-predicted without this.
+    Uses inverse frequency weighting: rarer classes get higher weight.
+    """
+    classes, counts = np.unique(y, return_counts=True)
+    total = len(y)
+    # weight = total / (n_classes * count_for_class)
+    n_classes = len(classes)
+    weight_map = {
+        cls: total / (n_classes * count)
+        for cls, count in zip(classes, counts)
+    }
+    print("\nClass weights (inverse frequency):")
+    label_map = {0: "Loss", 1: "Draw", 2: "Win"}
+    for cls, w in weight_map.items():
+        print(f"  {label_map[cls]}: {w:.3f}  (n={counts[list(classes).index(cls)]})")
+
+    return np.array([weight_map[label] for label in y])
+
+
 def time_based_split(df: pd.DataFrame, test_ratio: float = 0.2):
-    """
-    Split by date — train on past, test on future.
-    Prevents data leakage from rolling features.
-    """
     df = df.sort_values('match_date').reset_index(drop=True)
-    split_idx = int(len(df) * (1 - test_ratio))
+    split_idx  = int(len(df) * (1 - test_ratio))
     split_date = df.iloc[split_idx]['match_date']
 
     train = df[df['match_date'] < split_date].reset_index(drop=True)
@@ -137,9 +127,12 @@ def train():
 
     print(f"\nOutcome distribution:")
     print(f"  Train — {dict(zip(*np.unique(y_train, return_counts=True)))}")
-    print(f"  Test  — {dict(zip(*np.unique(y_test, return_counts=True)))}")
+    print(f"  Test  — {dict(zip(*np.unique(y_test,  return_counts=True)))}")
 
-    print("\nTraining XGBoost...")
+    # Compute sample weights for class imbalance (#4)
+    sample_weights = compute_class_weights(y_train)
+
+    print("\nTraining XGBoost with class weighting...")
     model = XGBClassifier(
         n_estimators=300,
         max_depth=5,
@@ -152,6 +145,7 @@ def train():
     )
     model.fit(
         X_train, y_train,
+        sample_weight=sample_weights,   # fix #4
         eval_set=[(X_test, y_test)],
         verbose=50,
     )
@@ -174,8 +168,8 @@ def train():
 
     print("\nFeature Importance (top 15):")
     importance_df = pd.DataFrame({
-        'feature': feature_names,
-        'importance': model.feature_importances_
+        'feature':    feature_names,
+        'importance': model.feature_importances_,
     }).sort_values('importance', ascending=False)
     for _, row in importance_df.head(15).iterrows():
         bar = "█" * int(row['importance'] * 200)
@@ -183,9 +177,9 @@ def train():
 
     print("\nSaving model...")
     joblib.dump({
-        'model': model,
+        'model':         model,
         'feature_names': feature_names,
-        'team_metrics': TEAM_METRICS,
+        'team_metrics':  TEAM_METRICS,
     }, "ml/match_predictor.pkl")
     print("  Saved to ml/match_predictor.pkl")
 
