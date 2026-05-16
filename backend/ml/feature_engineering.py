@@ -4,6 +4,8 @@ from statsbombpy import sb
 import warnings
 warnings.filterwarnings('ignore')
 
+from ml.metrics import compute_metrics
+
 COMPETITIONS = [
     {"competition_id": 11, "season_id": 4},
     {"competition_id": 11, "season_id": 1},
@@ -200,90 +202,6 @@ def get_most_common_formation(team: str, match_date: str, history: pd.DataFrame)
     return int(past['formation'].mode()[0])
 
 
-def compute_metrics(team_stats: dict, opp_stats: dict, goals_conceded: int) -> dict:
-    """Compute 12 normalised indices from raw stats."""
-
-    xg           = team_stats["xg"]
-    xg_per_shot  = team_stats["xg_per_shot"]
-    shots        = team_stats["shots"]
-    key_passes   = team_stats["key_passes"]
-    tackles      = team_stats["tackles"]
-    errors       = team_stats["defensive_errors"]
-    aerial_rate  = team_stats["aerial_win_rate"]
-    press_idx    = team_stats["press_intensity"]
-    pass_acc     = team_stats["pass_accuracy"]
-    poss_pct     = team_stats["possession_pct"]
-    def_line     = team_stats["def_line_norm"]
-    transition   = team_stats["transition_proxy"]
-    opp_xg       = opp_stats["xg"]
-
-    # 1. Offensive Output Index
-    osi = min(
-        (min(xg / 2.5, 1.0) * 0.50) +
-        (min(shots / 20.0, 1.0) * 0.25) +
-        (min(key_passes / 10.0, 1.0) * 0.25),
-        1.0
-    )
-
-    # 2. Shot Quality Index
-    sqi = min(xg_per_shot / 0.2, 1.0)
-
-    # 3. Defensive Solidity Index
-    dsi = max(
-        1.0 - (
-            (min(opp_xg / 2.5, 1.0) * 0.60) +
-            (min(errors / 5.0, 1.0) * 0.40)
-        ),
-        0.0
-    )
-
-    # 4. Aerial Dominance Index
-    adi = aerial_rate
-
-    # 5. Press Intensity Index
-    pii = min(press_idx, 1.0)
-
-    # 6. Passing Stability Index
-    psi = pass_acc
-
-    # 7. Possession Share
-    pos = poss_pct
-
-    # 8. Transition Speed Index
-    tsi = transition
-
-    # 9. Defensive Line Height
-    dlh = def_line
-
-    # 10. Match Performance Score
-    mps = min(
-        (min(xg / 2.5, 1.0) * 0.40) +
-        (min(key_passes / 10.0, 1.0) * 0.30) +
-        (min(tackles / 20.0, 1.0) * 0.30),
-        1.0
-    )
-
-    # 11. Discipline Index (higher = more disciplined)
-    discipline = max(1.0 - min(team_stats["fouls"] / 20.0, 1.0), 0.0)
-
-    # 12. Chance Creation Rate
-    ccr = min(key_passes / 10.0, 1.0)
-
-    return {
-        "offensive_output_index":    round(osi, 3),
-        "shot_quality_index":        round(sqi, 3),
-        "defensive_solidity_index":  round(dsi, 3),
-        "aerial_dominance_index":    round(adi, 3),
-        "press_intensity_index":     round(pii, 3),
-        "passing_stability_index":   round(psi, 3),
-        "possession_share":          round(pos, 3),
-        "transition_speed_index":    round(tsi, 3),
-        "defensive_line_height":     round(dlh, 3),
-        "match_performance_score":   round(mps, 3),
-        "discipline_index":          round(discipline, 3),
-        "chance_creation_rate":      round(ccr, 3),
-    }
-
 
 def build_dataset():
     rows = []
@@ -332,10 +250,10 @@ def build_dataset():
             away_formation = formations.get(away_team, None)
 
             home_metrics = compute_metrics(
-                stats[home_team], stats[away_team], int(away_score)
+                stats[home_team], stats[away_team]
             )
             away_metrics = compute_metrics(
-                stats[away_team], stats[home_team], int(home_score)
+                stats[away_team], stats[home_team]
             )
 
             rows.append({

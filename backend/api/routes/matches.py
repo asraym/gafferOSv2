@@ -160,3 +160,64 @@ def get_upcoming_matches(team_id: int, db: Session = Depends(get_db)):
         "match_date": str(match.match_date),
         "venue": match.venue,
     }
+
+class MatchFeedbackRequest(BaseModel):
+    match_id:              int
+    actual_result:         str           # W / D / L
+    formation_used:        str
+    goals_scored:          int
+    goals_conceded:        int
+    coach_notes:           Optional[str] = None
+    # Tactical context — stored for model training (#2 feedback loop)
+    coach_followed_rec:    Optional[bool] = None   # did coach play recommended formation
+    recommended_formation: Optional[str]  = None   # what engine recommended
+    recommended_line:      Optional[str]  = None
+    recommended_press:     Optional[str]  = None
+    recommended_focus:     Optional[str]  = None
+    predicted_win_prob:    Optional[float] = None
+    squad_style:           Optional[str]  = None   # style label e.g. "direct"
+    coherence_score:       Optional[float] = None
+    opponent_style:        Optional[str]  = None
+
+
+@router.post("/matches/feedback")
+def record_match_feedback(req: MatchFeedbackRequest, db: Session = Depends(get_db)):
+    match = db.query(Match).filter(Match.id == req.match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found.")
+
+    allowed_results = {"W", "D", "L"}
+    if req.actual_result not in allowed_results:
+        raise HTTPException(
+            status_code=400,
+            detail=f"actual_result must be one of {allowed_results}"
+        )
+
+    match.result         = req.actual_result
+    match.formation_used = req.formation_used
+    match.goals_scored   = req.goals_scored
+    match.goals_conceded = req.goals_conceded
+    if req.coach_notes:
+        match.notes = req.coach_notes
+
+    # Tactical context fields — store if columns exist
+    # Add these to Match model and run migration if not present
+    for field in [
+        "coach_followed_rec", "recommended_formation", "recommended_line",
+        "recommended_press", "recommended_focus", "predicted_win_prob",
+        "squad_style", "coherence_score", "opponent_style",
+    ]:
+        val = getattr(req, field, None)
+        if val is not None and hasattr(match, field):
+            setattr(match, field, val)
+
+    db.commit()
+
+    return {
+        "status":           "recorded",
+        "match_id":         req.match_id,
+        "actual_result":    req.actual_result,
+        "formation_used":   req.formation_used,
+        "coherence_score":  req.coherence_score,
+        "followed_rec":     req.coach_followed_rec,
+    }

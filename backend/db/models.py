@@ -81,7 +81,16 @@ class Match(Base):
 
     team               = relationship("Team", back_populates="matches")
     opposition_profile = relationship("OppositionProfile", back_populates="match", uselist=False)
-
+    # Tactical recommendation storage (feedback loop)
+    recommended_formation = Column(String,  nullable=True)
+    recommended_line      = Column(String,  nullable=True)
+    recommended_press     = Column(String,  nullable=True)
+    recommended_focus     = Column(String,  nullable=True)
+    predicted_win_prob    = Column(Float,   nullable=True)
+    squad_style           = Column(String,  nullable=True)
+    coherence_score       = Column(Float,   nullable=True)
+    opponent_style        = Column(String,  nullable=True)
+    coach_followed_rec    = Column(Boolean, nullable=True)
 
 class PlayerMatchSnapshot(Base):
     __tablename__ = "player_match_snapshots"

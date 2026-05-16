@@ -1,9 +1,5 @@
 import random
 
-# ---------------------------------------------------------------------------
-# Data mode headers — fixed, no variation (these are warnings not narrative)
-# ---------------------------------------------------------------------------
-
 DATA_MODE_HEADERS = {
     "full":    None,
     "basic":   (
@@ -12,15 +8,31 @@ DATA_MODE_HEADERS = {
         "for a more accurate report."
     ),
     "default": (
-        "ℹ️  No match data available yet. Showing historically optimal tactics "
-        "based on training data. Analysis will improve once matches are logged."
+        "ℹ️  No match data available yet. Showing base rate probabilities only. "
+        "Submit match snapshots and scouting notes before requesting tactical analysis."
     ),
 }
 
+# Defensive line reasoning
+DEFENSIVE_LINE_REASONING = {
+    "High":   "pushing the line high to compress space and catch attackers offside — requires pace from CBs",
+    "Medium": "balanced shape — standard cover, adaptable in and out of possession",
+    "Deep":   "sitting deep to absorb pressure — organised defensive block is the priority",
+}
 
-# ---------------------------------------------------------------------------
-# Variation pools
-# ---------------------------------------------------------------------------
+# Press intensity reasoning
+PRESS_INTENSITY_REASONING = {
+    "High":   {
+        "form":    "form and fitness support an aggressive press — press triggers should be set pieces and back passes",
+        "default": "squad condition allows high intensity — press early and force errors",
+    },
+    "Medium": "balanced approach given squad fitness and opponent quality — press selectively",
+    "Low":    {
+        "fatigue": "fatigue risk is elevated — conserve energy, stay compact, press only when safe",
+        "opp":     "opponent quality is high — avoid pressing into their strengths, stay organised",
+        "default": "low press recommended — stay compact and hit on the counter",
+    },
+}
 
 FORMATION_TRAIT_INTROS = [
     "Shaped by {detail}.",
@@ -93,44 +105,50 @@ BENCH_UPGRADE_NOTES = [
     "Bench has a stronger option at {broad}: {benched} {b_rating:.1f} over {starter} {s_rating:.1f}",
 ]
 
+TRAJECTORY_RISING_NOTES = [
+    "{name} ({pos}) is in excellent recent form — trending upward over last 3 matches",
+    "{name} ({pos}) form is rising — confident selection",
+    "{name} ({pos}) has been getting better each match — key player right now",
+]
 
-# ---------------------------------------------------------------------------
-# Helper
-# ---------------------------------------------------------------------------
+TRAJECTORY_FALLING_NOTES = [
+    "{name} ({pos}) form has dropped over the last 3 matches — monitor closely",
+    "{name} ({pos}) trending downward in recent games — bench option worth considering",
+    "Form concern: {name} ({pos}) has been declining — watch the first 30 mins",
+]
+
 
 def _pick(pool: list, **kwargs) -> str:
     return random.choice(pool).format(**kwargs)
 
 
-# ---------------------------------------------------------------------------
-# Explainer
-# ---------------------------------------------------------------------------
-
 class Explainer:
     """
     Builds the plain English reasoning report from all engine layers.
-    Trait and attribute aware — mentions specific players where relevant.
-    Picks up matchup layer flags (exploits, vulnerabilities, general notes).
-    Language varies per run via random template selection.
     """
 
     def explain(self, data: dict) -> dict:
-        data["reasoning"] = self._build_report(data)
+        try:
+            data["reasoning"] = self._build_report(data)
+        except Exception as e:
+            data["reasoning"] = f"Explainer error: {str(e)}"
         return data
 
     def _build_report(self, d: dict) -> str:
         lines = []
 
-        # Data quality header
         mode    = d.get("data_mode", "default")
         warning = DATA_MODE_HEADERS.get(mode)
         if warning:
             lines.append(warning)
             lines.append("")
 
-        opp = d.get("opponent_name", "the opponent")
-        tm  = d.get("team_metrics", {})
-        om  = d.get("opp_metrics", {})
+        opp    = d.get("opponent_name", "the opponent")
+        tm     = d.get("team_metrics", {})
+        om     = d.get("opp_metrics", {})
+        press  = d.get("press_intensity", "Medium")
+        line   = d.get("defensive_line", "Medium")
+        fatigue = d.get("team_fatigue_score", d.get("fatigue_score", 0.30))
 
         # Outcome probabilities
         win_p  = d.get("win_probability",  0.375)
@@ -141,33 +159,44 @@ class Explainer:
             f"Win {win_p:.0%}  ·  Draw {draw_p:.0%}  ·  Loss {loss_p:.0%}."
         )
 
-        # Formation rationale
-        formation        = d.get("recommended_formation", "4-3-3")
-        scores           = d.get("formation_scores", {})
-        formation_reason = self._formation_reason(d)
-
-        if scores and mode != "default":
-            ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-            top3   = ", ".join(f"{f} ({v:.0%})" for f, v in ranked[:3])
+        # Formation — handle None for default mode (#9)
+        formation = d.get("recommended_formation")
+        if formation is None:
             lines.append(
-                f"Recommended formation: {formation}. "
-                f"Model tested all candidates — top 3 win probabilities: {top3}. "
-                f"{formation_reason}"
+                "Formation: insufficient data to recommend a shape. "
+                "Submit match snapshots and scouting notes to unlock tactical recommendations."
             )
         else:
-            lines.append(f"Recommended formation: {formation}. {formation_reason}")
+            formation_reason = self._formation_reason(d)
+            lines.append(
+                f"Recommended formation: {formation}."
+                + (f" {formation_reason}" if formation_reason else "")
+            )
+            formation_note = d.get("formation_selection_note", "")
+            if formation_note:
+                lines.append(f"Formation adjusted: {formation_note}")
 
-        # Tactical decisions
-        lines.append(
-            f"Tactical approach: {d.get('tactical_focus', 'Balanced Mid-Block')}. "
-            f"Defensive line: {d.get('defensive_line', 'Medium')}. "
-            f"Press intensity: {d.get('press_intensity', 'Medium')}."
-        )
+            # Defensive line reasoning
+            line_reason = DEFENSIVE_LINE_REASONING.get(line, "")
+            if line_reason:
+                lines.append(f"Defensive line: {line} — {line_reason}.")
+
+            # Press intensity reasoning
+            press_reason = self._press_reason(press, fatigue, om)
+            lines.append(f"Press intensity: {press} — {press_reason}.")
+
+            # Tactical focus
+            lines.append(f"Tactical focus: {d.get('tactical_focus', 'Balanced Mid-Block')}.")
 
         # Key player attribute callouts
         attr_notes = self._attribute_callouts(d)
         if attr_notes:
             lines.append("Key personnel: " + " | ".join(attr_notes))
+
+        # Form trajectory callouts
+        trajectory_notes = self._trajectory_notes(d)
+        if trajectory_notes:
+            lines.append("Form: " + " | ".join(trajectory_notes))
 
         # Metric context
         if mode != "default" and tm:
@@ -186,7 +215,7 @@ class Explainer:
         # Opposition scouting
         opp_profile = d.get("opposition")
         if opp_profile:
-            opp_form  = opp_profile.get("formation", "Unknown")
+            opp_form  = opp_profile.get("likely_formation") or opp_profile.get("formation", "Unknown")
             opp_style = opp_profile.get("playing_style", "")
             opp_press = opp_profile.get("press_style", "")
             notes = []
@@ -199,24 +228,19 @@ class Explainer:
             if notes:
                 lines.append(f"Scouting: {opp} " + ", ".join(notes) + ".")
 
-        # --- Matchup layer output ---
-        exploits       = d.get("matchup_exploits", [])
+        # Matchup layer
+        exploits        = d.get("matchup_exploits", [])
         vulnerabilities = d.get("matchup_vulnerabilities", [])
-        general_notes  = d.get("matchup_general_notes", [])
+        general_notes   = d.get("matchup_general_notes", [])
 
         if exploits:
             lines.append("Exploit: " + " | ".join(exploits))
-
         if vulnerabilities:
             lines.append("Watch out: " + " | ".join(vulnerabilities))
-
-        if general_notes:
-            for note in general_notes:
-                lines.append(note)
+        for note in general_notes:
+            lines.append(note)
 
         # Fatigue
-        fatigue = d.get("team_fatigue_score", d.get("fatigue_score", 0.30))
-        press   = d.get("press_intensity", "Medium")
         if fatigue > 0.60:
             lines.append(
                 f"Fatigue risk is elevated ({fatigue:.0%}) — "
@@ -239,33 +263,68 @@ class Explainer:
         if suggestions and suggestions[0] != "Squad form looks solid — no urgent rotation needed.":
             lines.append("Rotation flags: " + " | ".join(suggestions))
 
-        # Missing data nudge
-        missing = d.get("missing_fields", [])
+        # Replace the missing data nudge block at the bottom of _build_report
+
+        # Constraint violations — separate from missing data
+        violations = d.get("constraint_violations", [])
+        if violations:
+            lines.append(
+                "Tactical conflicts: " +
+                " | ".join(v["reason"] for v in violations)
+            )
+
+        # Missing data nudge — filter out constraint violations
+        missing = [
+            m for m in d.get("missing_fields", [])
+            if not m.startswith("Tactical conflict:")
+        ]
         if missing:
             lines.append("To improve accuracy, submit: " + "; ".join(missing) + ".")
-
+        
         return "\n".join(lines)
+
+    # ------------------------------------------------------------------
+    # Press intensity reasoning
+    # ------------------------------------------------------------------
+
+    def _press_reason(self, press: str, fatigue: float, opp_metrics: dict) -> str:
+        opp_dsi = opp_metrics.get("defensive_solidity_index", 0.55)
+        opp_osi = opp_metrics.get("offensive_output_index", 0.38)
+
+        if press == "High":
+            if fatigue < 0.35:
+                return PRESS_INTENSITY_REASONING["High"]["form"]
+            return PRESS_INTENSITY_REASONING["High"]["default"]
+
+        if press == "Low":
+            if fatigue > 0.60:
+                return PRESS_INTENSITY_REASONING["Low"]["fatigue"]
+            if opp_osi > 0.55:
+                return PRESS_INTENSITY_REASONING["Low"]["opp"]
+            return PRESS_INTENSITY_REASONING["Low"]["default"]
+
+        return PRESS_INTENSITY_REASONING["Medium"]
 
     # ------------------------------------------------------------------
     # Formation reason
     # ------------------------------------------------------------------
 
     def _formation_reason(self, d: dict) -> str:
-        formation = d.get("recommended_formation", "4-3-3")
-        xi        = d.get("starting_xi", [])
-        if not xi:
+        formation = d.get("recommended_formation")
+        if not formation:
             return ""
 
+        xi    = d.get("starting_xi", [])
         notes = []
 
         trait_mentions = {
-            "Ball Playing Defender":  "builds from the back",
-            "Progressive Passer":     "progresses play from deep",
-            "Target Man":             "aerial threat up front",
-            "Deep Playmaker":         "controls tempo from midfield",
-            "False Nine":             "fluid attacking movement",
-            "Offensive Full-Back":    "width and attacking threat from full-back",
-            "High Press Leader":      "leads the press from the front",
+            "Ball Playing Defender": "builds from the back",
+            "Progressive Passer":    "progresses play from deep",
+            "Target Man":            "aerial threat up front",
+            "Deep Playmaker":        "controls tempo from midfield",
+            "False Nine":            "fluid attacking movement",
+            "Offensive Full-Back":   "width and attacking threat from full-back",
+            "High Press Leader":     "leads the press from the front",
         }
 
         mentioned = []
@@ -278,22 +337,17 @@ class Explainer:
 
         if mentioned:
             detail = ", ".join(mentioned[:2])
-            notes.append(
-                _pick(FORMATION_TRAIT_INTROS, detail=detail, formation=formation)
-            )
+            notes.append(_pick(FORMATION_TRAIT_INTROS, detail=detail, formation=formation))
 
         if formation == "4-3-3":
             fast_fwds = [
                 p for p in xi
                 if p["broad_position"] == "FWD"
-                and p.get("attributes", {}).get("pace") is not None
-                and p["attributes"]["pace"] >= 15
+                and p.get("attributes", {}).get("pace", 0) >= 15
             ]
             if fast_fwds:
                 names = " and ".join(p["name"] for p in fast_fwds[:2])
-                notes.append(
-                    _pick(FORMATION_PACE_NOTES, names=names, formation=formation)
-                )
+                notes.append(_pick(FORMATION_PACE_NOTES, names=names, formation=formation))
 
         elif formation == "4-4-2":
             sts = [p for p in xi if p["broad_position"] == "FWD"]
@@ -305,9 +359,6 @@ class Explainer:
                 ]
                 if heading_vals and max(heading_vals) >= 15:
                     notes.append(_pick(FORMATION_PHYSICAL_NOTES))
-
-        if not notes:
-            return ""
 
         return " ".join(notes)
 
@@ -328,22 +379,66 @@ class Explainer:
                 continue
 
             heading = attrs.get("heading")
-            if heading and heading >= 17 and pos in ["CB", "ST", "CF"]:
+            if heading and heading >= 17 and pos in ("CB", "ST", "CF"):
                 notes.append(_pick(HEADING_NOTES, name=name, val=heading))
 
             pace = attrs.get("pace")
-            if pace and pace >= 17 and pos in ["RW", "LW", "RB", "LB", "ST", "CF"]:
+            if pace and pace >= 17 and pos in ("RW", "LW", "RB", "LB", "ST", "CF"):
                 notes.append(_pick(PACE_NOTES, name=name, val=pace))
 
             passing = attrs.get("passing")
-            if passing and passing >= 17 and pos in ["CM", "CAM", "CDM"]:
+            if passing and passing >= 17 and pos in ("CM", "CAM", "CDM"):
                 notes.append(_pick(PASSING_NOTES, name=name, val=passing))
 
             finishing = attrs.get("finishing")
-            if finishing and finishing >= 17 and pos in ["ST", "CF", "SS"]:
+            if finishing and finishing >= 17 and pos in ("ST", "CF", "SS"):
                 notes.append(_pick(FINISHING_NOTES, name=name, val=finishing))
 
         return notes[:3]
+
+    # ------------------------------------------------------------------
+    # Form trajectory
+    # ------------------------------------------------------------------
+
+    def _trajectory_notes(self, d: dict) -> list:
+        xi        = d.get("starting_xi", [])
+        snapshots = d.get("snapshots", [])
+        notes     = []
+
+        if not snapshots:
+            return notes
+
+        # Build trajectory per player from snapshots
+        from collections import defaultdict
+        by_player = defaultdict(list)
+        for s in snapshots:
+            by_player[s["player_id"]].append(s)
+
+        for p in xi:
+            pid   = p["player_id"]
+            snaps = sorted(by_player.get(pid, []), key=lambda s: s.get("match_id", 0))
+            if len(snaps) < 3:
+                continue
+
+            def snap_score(s):
+                return (
+                    s.get("goals", 0) * 0.25 +
+                    s.get("assists", 0) * 0.20 +
+                    s.get("key_passes", 0) * 0.10 +
+                    (s.get("tackles", 0) + s.get("interceptions", 0)) * 0.10
+                )
+
+            recent  = snap_score(snaps[-1])
+            earlier = snap_score(snaps[-3])
+            trend   = (recent - earlier) / max(earlier, 0.1)
+            pos     = p.get("specific_position", p.get("broad_position", ""))
+
+            if trend > 0.20:
+                notes.append(_pick(TRAJECTORY_RISING_NOTES, name=p["name"], pos=pos))
+            elif trend < -0.20 and p.get("form_score", 1.0) < 0.50:
+                notes.append(_pick(TRAJECTORY_FALLING_NOTES, name=p["name"], pos=pos))
+
+        return notes[:3]  # cap — don't flood the report
 
     # ------------------------------------------------------------------
     # Stamina warnings
@@ -357,9 +452,7 @@ class Explainer:
             stamina = p.get("attributes", {}).get("stamina")
             if stamina is not None and stamina < 10:
                 pos = p.get("specific_position", p.get("broad_position", ""))
-                flags.append(
-                    _pick(STAMINA_WARNING_NOTES, name=p["name"], pos=pos, val=stamina)
-                )
+                flags.append(_pick(STAMINA_WARNING_NOTES, name=p["name"], pos=pos, val=stamina))
 
         return flags
 
@@ -396,17 +489,14 @@ class Explainer:
             if broad in bench_by_pos:
                 starter = xi_by_pos[broad]
                 benched = bench_by_pos[broad]
-                diff    = benched["overall"] - starter["overall"]
-                if diff >= 1.5:
-                    flags.append(
-                        _pick(
-                            BENCH_UPGRADE_NOTES,
-                            benched=benched["name"],
-                            starter=starter["name"],
-                            broad=broad,
-                            b_rating=benched["overall"],
-                            s_rating=starter["overall"],
-                        )
-                    )
+                if benched["overall"] - starter["overall"] >= 1.5:
+                    flags.append(_pick(
+                        BENCH_UPGRADE_NOTES,
+                        benched=benched["name"],
+                        starter=starter["name"],
+                        broad=broad,
+                        b_rating=benched["overall"],
+                        s_rating=starter["overall"],
+                    ))
 
         return flags
