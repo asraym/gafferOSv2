@@ -1,0 +1,123 @@
+.hero {
+  position: relative;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  padding: 0 6vw;
+  overflow: hidden;
+  gap: 4rem;
+}
+
+.gridBg {
+  position: absolute;
+  inset: -10%;
+  background-image:
+    linear-gradient(rgba(61,53,48,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(61,53,48,0.06) 1px, transparent 1px);
+  background-size: 48px 48px;
+  transition: transform 0.3s ease-out;
+  pointer-events: none;
+}
+
+.board {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease-out;
+}
+
+.pitch {
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  filter: drop-shadow(0 2px 24px rgba(184,106,60,0.08));
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  z-index: 2;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-surface);
+  border: 0.5px solid var(--color-border);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-family: var(--font-mono);
+  color: var(--color-muted);
+  width: fit-content;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-success);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+.headline {
+  font-family: var(--font-display);
+  font-size: clamp(2.8rem, 5vw, 4.2rem);
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
+}
+
+.accent {
+  color: var(--color-accent);
+}
+
+.sub {
+  font-size: 1.05rem;
+  color: var(--color-muted);
+  line-height: 1.7;
+  max-width: 42ch;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btnPrimary {
+  background: var(--color-accent);
+  color: #F7F3EE;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 500;
+  padding: 12px 28px;
+  border-radius: var(--radius-md);
+  transition: opacity 0.2s;
+}
+
+.btnPrimary:hover { opacity: 0.88; }
+
+.btnGhost {
+  background: transparent;
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 500;
+  padding: 12px 28px;
+  border-radius: var(--radius-md);
+  border: 0.5px solid var(--color-border);
+  transition: background 0.2s;
+}
+
+.btnGhost:hover { background: var(--color-surface); }

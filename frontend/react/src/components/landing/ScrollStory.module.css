@@ -1,0 +1,89 @@
+.section {
+  height: 350vh;
+  position: relative;
+  background: var(--color-surface);
+  border-top: 0.5px solid var(--color-border);
+  border-bottom: 0.5px solid var(--color-border);
+}
+
+.sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  padding: 0 6vw;
+  gap: 4rem;
+  overflow: hidden;
+}
+
+.left {
+  position: relative;
+  height: 300px;
+}
+
+.step {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  pointer-events: none;
+}
+
+.stepLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--color-accent);
+  text-transform: uppercase;
+}
+
+.stepTitle {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.stepDesc {
+  font-size: 1rem;
+  color: var(--color-muted);
+  line-height: 1.7;
+  max-width: 40ch;
+}
+
+.formationTag {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-accent);
+  background: var(--color-base);
+  border: 0.5px solid var(--color-border);
+  border-radius: 999px;
+  padding: 4px 14px;
+  width: fit-content;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pitchWrap {
+  width: 100%;
+  max-width: 420px;
+}
+
+.pitch {
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 4px 32px rgba(184,106,60,0.10));
+}
