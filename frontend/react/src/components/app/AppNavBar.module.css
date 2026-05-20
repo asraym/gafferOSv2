@@ -1,0 +1,105 @@
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(247, 243, 238, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 0.5px solid var(--color-border);
+}
+
+.inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.logoMark {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--color-accent);
+  color: #F7F3EE;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logoText {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.links {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1;
+  justify-content: center;
+}
+
+.link {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-muted);
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  transition: color 0.2s, background 0.2s;
+  text-decoration: none;
+}
+
+.link:hover {
+  color: var(--color-text);
+  background: var(--color-overlay);
+}
+
+.active {
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 0.5px solid var(--color-border);
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.clubBadge {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-muted);
+  background: var(--color-surface);
+  border: 0.5px solid var(--color-border);
+  border-radius: 999px;
+  padding: 5px 12px;
+}
+
+.clubDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+}

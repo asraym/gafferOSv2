@@ -31,7 +31,7 @@ def analyse_match(req: AnalyseRequest, db: Session = Depends(get_db)):
 # --- Match Registration ---
 
 class MatchRegisterRequest(BaseModel):
-    season_id: int
+    season_id: int = 1
     team_id: int
     opponent_name: str
     match_date: str  # YYYY-MM-DD

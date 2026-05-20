@@ -1,0 +1,358 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-top: 1rem;
+}
+
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.pageLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.pageTitle {
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
+}
+
+.btnPrimary {
+  background: var(--color-accent);
+  color: #F7F3EE;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 22px;
+  border-radius: var(--radius-md);
+  transition: opacity 0.2s;
+  border: none;
+  cursor: pointer;
+}
+
+.btnPrimary:hover { opacity: 0.88; }
+.btnPrimary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.loadingText {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.matchBanner {
+  background: var(--color-surface);
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bannerLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
+.bannerOpponent {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.bannerRight {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.bannerMeta {
+  display: flex;
+  gap: 8px;
+}
+
+.metaTag {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-muted);
+  background: var(--color-base);
+  border: 0.5px solid var(--color-border);
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+
+.noMatch {
+  font-size: 14px;
+  color: var(--color-muted);
+  padding: 1rem;
+  background: var(--color-surface);
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.error {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-alert);
+}
+
+.loadingState {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 2rem;
+}
+
+.loadingDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.report {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.kpiStrip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+
+.kpiCard {
+  background: var(--color-surface);
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kpiLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.kpiValue {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.pitchCard {
+  background: var(--color-surface);
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.pitchWrap {
+  width: 100%;
+}
+
+.pitch {
+  width: 100%;
+  height: auto;
+}
+
+.rightCol {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.cardLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.probBars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.probRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.probLabel {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-muted);
+  width: 32px;
+}
+
+.probTrack {
+  flex: 1;
+  height: 6px;
+  background: var(--color-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.probFill {
+  height: 100%;
+  border-radius: 999px;
+}
+
+.probVal {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text);
+  width: 36px;
+  text-align: right;
+}
+
+.rotationList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rotationItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.rotationDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+
+.rotationText {
+  font-size: 13px;
+  color: var(--color-muted);
+  line-height: 1.5;
+}
+
+.flagList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.flagItem {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  line-height: 1.5;
+}
+
+.flagGood {
+  background: rgba(90, 138, 106, 0.1);
+  color: var(--color-success);
+}
+
+.flagBad {
+  background: rgba(200, 97, 42, 0.1);
+  color: var(--color-alert);
+}
+
+.benchList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.benchPlayer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-base);
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+}
+
+.benchName {
+  font-size: 13px;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.benchPos {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-muted);
+}
+
+.benchRating {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+.reasoningCard {
+  background: var(--color-surface);
+  border: 0.5px solid var(--color-border);
+  border-left: 2px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.reasoningText {
+  font-size: 14px;
+  color: var(--color-muted);
+  line-height: 1.8;
+}
