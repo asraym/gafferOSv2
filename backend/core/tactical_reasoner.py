@@ -12,31 +12,45 @@ FORMATION_DECODING = {
     # 3-4-3 (key 6) removed — no recommendation rule exists for it (#10)
 }
 
+# Add to PRESS_RULES — insert between the existing opp solidity rule and the High rule
 PRESS_RULES = [
-    (lambda d: d["fatigue_score"] > 0.65,                                          "Low"),
-    (lambda d: d["opp"]["defensive_solidity_index"] > 0.70,                        "Low"),
+    (lambda d: d["fatigue_score"] > 0.65,                                           "Low"),
+    (lambda d: d["opp"]["defensive_solidity_index"] > 0.70,                         "Low"),
+    (lambda d: d.get("squad_profile", {}).get("defensive_tendency", 0) > 0.65
+               and d.get("squad_profile", {}).get("press_tendency", 0) < 0.30,      "Low"),
+    (lambda d: d.get("squad_profile", {}).get("press_tendency", 0) > 0.60
+               and d["fatigue_score"] < 0.50,                                        "High"),
     (lambda d: d["team"]["offensive_output_index"] > 0.55
                and d["team"]["passing_stability_index"] > 0.75
-               and d["fatigue_score"] < 0.40,                                      "High"),
+               and d["fatigue_score"] < 0.40,                                        "High"),
 ]
 
 LINE_RULES = [
-    (lambda d: d["opp"]["offensive_output_index"] > 0.55,                          "Deep"),
-    (lambda d: d["team"]["defensive_solidity_index"] < 0.40,                       "Deep"),
+    (lambda d: d["opp"]["offensive_output_index"] > 0.55,                           "Deep"),
+    (lambda d: d["team"]["defensive_solidity_index"] < 0.40,                        "Deep"),
+    (lambda d: d.get("squad_profile", {}).get("defensive_tendency", 0) > 0.65
+               and d.get("squad_profile", {}).get("aerial_tendency", 0) < 0.35,     "Deep"),
+    (lambda d: d.get("squad_profile", {}).get("aerial_tendency", 0) > 0.60
+               and d["opp"]["offensive_output_index"] < 0.50,                        "High"),
     (lambda d: d["team"]["offensive_output_index"] > 0.55
-               and d["opp"]["offensive_output_index"] < 0.40,                      "High"),
+               and d["opp"]["offensive_output_index"] < 0.40,                        "High"),
 ]
 
 FOCUS_RULES = [
     (lambda d: d["team"]["defensive_solidity_index"] < 0.40
-               and d["opp"]["offensive_output_index"] > 0.55,                      "Defensive Solidity"),
+               and d["opp"]["offensive_output_index"] > 0.55,                        "Defensive Solidity"),
     (lambda d: d["team"]["offensive_output_index"] > 0.55
-               and d["opp"]["defensive_solidity_index"] < 0.40,                    "High Press & Dominate"),
+               and d["opp"]["defensive_solidity_index"] < 0.40,                      "High Press & Dominate"),
+    (lambda d: d.get("squad_profile", {}).get("press_tendency", 0) > 0.65
+               and d["fatigue_score"] < 0.45,                                        "High Press & Dominate"),
+    (lambda d: d.get("squad_profile", {}).get("creator_tendency", 0) > 0.60
+               and d["team"]["passing_stability_index"] > 0.70,                      "Possession & Build-Up"),
     (lambda d: d["team"]["possession_share"] > 0.55
-               and d["team"]["passing_stability_index"] > 0.78,                    "Possession & Build-Up"),
-    (lambda d: d["team"]["passing_stability_index"] < 0.65,                        "Counter-Attacking"),
+               and d["team"]["passing_stability_index"] > 0.78,                      "Possession & Build-Up"),
+    (lambda d: d.get("squad_profile", {}).get("progressive_tendency", 0) > 0.65,    "Wide Attacking Play"),
+    (lambda d: d["team"]["passing_stability_index"] < 0.65,                         "Counter-Attacking"),
 ]
-
+           
 FORMATION_PROFILES = {
     "4-3-3":   {"GK":1,"DEF":4,"MID":3,"FWD":3,
                 "needs_wingers":True,  "needs_fullbacks":True,
@@ -132,6 +146,7 @@ class TacticalReasoner:
             "team":          team_m,
             "opp":           opp_m,
             "fatigue_score": data.get("fatigue_score", 0.30),
+            "squad_profile": data.get("squad_trait_profile", {}),
         }
         press = self._apply_rules(PRESS_RULES, context, default="Medium")
         line  = self._apply_rules(LINE_RULES,  context, default="Medium")
@@ -150,6 +165,12 @@ class TacticalReasoner:
             "tactical_focus":        focus,
             "opp_formation":         opp_formation_str,
         })
+
+        data["defensive_formation"] = self._pick_defensive_formation(
+            data["recommended_formation"],
+            data,
+        )
+
         return data
 
     def _pick_formation(self, team_m: dict, opp_m: dict, data: dict) -> str:
@@ -303,6 +324,76 @@ class TacticalReasoner:
                 return f
 
         return "4-4-2"  # absolute last resort
+
+    def _pick_defensive_formation(self, attacking_formation: str, data: dict) -> str:
+        """
+        Picks the out-of-possession defensive formation.
+        Driven by defensive line, press intensity, and squad defensive traits.
+        Can match the attacking formation — not forced to be different.
+        """
+        defensive_line  = data.get("defensive_line", "Medium")
+        press_intensity = data.get("press_intensity", "Medium")
+        players         = data.get("players", [])
+        sq_off, sq_def, sq_air, sq_prog = self._squad_tendencies(players)
+
+        available_counts = self._count_available(players)
+
+        def can_field(formation: str) -> bool:
+            needs = {
+                "4-3-3":   {"GK": 1, "DEF": 4, "MID": 3, "FWD": 3},
+                "4-4-2":   {"GK": 1, "DEF": 4, "MID": 4, "FWD": 2},
+                "4-2-3-1": {"GK": 1, "DEF": 4, "MID": 5, "FWD": 1},
+                "4-1-4-1": {"GK": 1, "DEF": 4, "MID": 5, "FWD": 1},
+                "4-4-1-1": {"GK": 1, "DEF": 4, "MID": 5, "FWD": 1},
+                "4-5-1":   {"GK": 1, "DEF": 4, "MID": 5, "FWD": 1},
+                "5-4-1":   {"GK": 1, "DEF": 5, "MID": 4, "FWD": 1},
+                "5-3-2":   {"GK": 1, "DEF": 5, "MID": 3, "FWD": 2},
+            }.get(formation, {})
+            for pos, count in needs.items():
+                if available_counts.get(pos, 0) < count:
+                    return False
+            return True
+
+        # ── Deep block ──────────────────────────────────────────────────────────
+        # Drop into a low compact defensive shape
+        if defensive_line == "Deep":
+            if sq_def > 0.30 and can_field("5-4-1"):
+                return "5-4-1"
+            if can_field("4-5-1"):
+                return "4-5-1"
+            if can_field("4-4-1-1"):
+                return "4-4-1-1"
+            return attacking_formation
+
+        # ── High press ───────────────────────────────────────────────────────────
+        # Stay aggressive — keep attacking shape or use a press-friendly shape
+        if defensive_line == "High" and press_intensity == "High":
+            if attacking_formation in ("4-3-3", "4-2-3-1"):
+                return attacking_formation   # these press well already
+            if can_field("4-3-3"):
+                return "4-3-3"
+            return attacking_formation
+
+        # ── Mid block ────────────────────────────────────────────────────────────
+        # Compact mid block — add midfield body, reduce attacking threat
+        if defensive_line == "Medium":
+            # Defensively strong squad — tuck the forward line in
+            if sq_def > 0.35 and attacking_formation == "4-3-3":
+                if can_field("4-5-1"):
+                    return "4-5-1"
+                if can_field("4-4-1-1"):
+                    return "4-4-1-1"
+            # 4-4-2 defends well in its own shape
+            if attacking_formation == "4-4-2":
+                return "4-4-2"
+            # 4-2-3-1 — drop the CAM into midfield line
+            if attacking_formation == "4-2-3-1":
+                if can_field("4-5-1"):
+                    return "4-5-1"
+            # Default — stay in attacking shape
+            return attacking_formation
+
+        return attacking_formation
 
     def _count_available(self, players: list) -> dict:
         """Count available players per broad position."""

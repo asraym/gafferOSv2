@@ -7,7 +7,7 @@ from core.matchup_layer import MatchupLayer
 from core.explainer import Explainer
 from core.tactical_style import TacticalStyle
 from core.tactical_constraints import TacticalConstraints
-
+from core.squad_trait_aggregator import SquadTraitAggregator
 
 class TacticalEngine:
     """
@@ -37,12 +37,14 @@ class TacticalEngine:
         self.explainer  = Explainer()
         self._style_deriver = TacticalStyle()
         self.constraints = TacticalConstraints()
+        self.trait_aggregator = SquadTraitAggregator()
 
     def analyse(self, db: Session, match_id: int, team_id: int) -> dict:
         data = self.fetcher.fetch(db, match_id, team_id)
         data = self.ranker.rank(data)
         data = self.calculator.calculate(data)
         data = self._matchup_pass(data, use_full_squad=True)
+        data = self._trait_aggregator_pass(data, use_full_squad=True)
         data = self.reasoner.reason(data)
 
         # Handle default mode — no formation recommended (#9)
@@ -59,6 +61,7 @@ class TacticalEngine:
         else:
             data = self._fill_squad(data)
             data = self._matchup_pass(data, use_full_squad=False)
+            data = self._trait_aggregator_pass(data, use_full_squad=False)
             data = self._style_deriver.derive(data)
             data = self.constraints.validate(data)
 
@@ -133,7 +136,17 @@ class TacticalEngine:
         data["bench"]                = bench
         data["rotation_suggestions"] = rotation
         return data
-        
+    
+    def _trait_aggregator_pass(self, data: dict, use_full_squad: bool) -> dict:
+        if use_full_squad:
+            original_xi = data.get("starting_xi", [])
+            data["starting_xi"] = data.get("players", [])
+            data = self.trait_aggregator.aggregate(data)
+            data["starting_xi"] = original_xi
+        else:
+            data = self.trait_aggregator.aggregate(data)
+        return data
+
     def _build_response(self, data: dict) -> dict:
         formation = data.get("recommended_formation")
         return {
@@ -161,6 +174,7 @@ class TacticalEngine:
             "defensive_line":        data["defensive_line"],
             "tactical_focus":        data["tactical_focus"],
             "opp_formation":         data.get("opp_formation", "Unknown"),
+            "defensive_formation": data.get("defensive_formation", data.get("recommended_formation")),
 
             # Squad
             "starting_xi":           data.get("starting_xi", []),
@@ -179,6 +193,11 @@ class TacticalEngine:
             "matchup_exploits":        data.get("matchup_exploits", []),
             "matchup_vulnerabilities": data.get("matchup_vulnerabilities", []),
             "matchup_general_notes":   data.get("matchup_general_notes", []),
+
+            #Traits and shi 
+            "squad_trait_profile":     data.get("squad_trait_profile", {}),
+            "linkup_pairs":            data.get("linkup_pairs", []),
+            "defensive_shape":         data.get("defensive_shape", {}),
 
             # Report
             "reasoning":             data["reasoning"],
