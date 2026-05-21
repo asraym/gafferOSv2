@@ -182,7 +182,7 @@ export default function Analysis() {
 
   useEffect(() => {
     getUpcomingMatch()
-      .then(setMatch)
+      .then((m) => {console.log('match:', m); setMatch(m)})
       .catch(() => setMatch(null))
       .finally(() => setLoading(false))
   }, [])
@@ -193,7 +193,8 @@ export default function Analysis() {
     setError('')
     setReport(null)
     try {
-      const result = await analyseMatch(match.id)
+      console.log('analysing match:', match)
+      const result = await analyseMatch(match.match_id || match.id)
       setReport(result)
     } catch (e: any) {
       setError(e.message)
@@ -285,7 +286,7 @@ export default function Analysis() {
                   value: report.match_risk_level,
                   color: RISK_COLORS[report.match_risk_level]
                 },
-                { label: 'Style', value: report.squad_style || report.tactical_focus },
+                { label: 'Style', value: report.squad_style?.style || report.tactical_focus },
               ].map(k => (
                 <div key={k.label} className={styles.kpiCard}>
                   <p className={styles.kpiLabel}>{k.label}</p>

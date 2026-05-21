@@ -36,7 +36,7 @@ export default function Opposition() {
     setError('')
     try {
       const result = await parseOpposition({
-        match_id: match.id,
+        match_id: match.match_id || match.id,
         opponent_name: match.opponent_name,
         notes,
       })

@@ -49,7 +49,7 @@ export const registerMatch = (body: object) =>
   request('/api/matches/register', { method: 'POST', body: JSON.stringify(body) })
 
 export const analyseMatch = (matchId: number) =>
-  request('/api/matches/analyse', {
+  request('/api/analyse', {
     method: 'POST',
     body: JSON.stringify({ match_id: matchId, team_id: TEAM_ID }),
   })
