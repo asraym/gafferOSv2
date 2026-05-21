@@ -1,0 +1,217 @@
+.surfaceCard {
+  background: var(--color-surface);
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.greeting {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.greetLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
+}
+
+.greetTitle {
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--color-text);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.metaLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
+}
+
+.matchCard {
+  padding: 2.25rem;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.fixtureBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.matchOpponent {
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--color-text);
+}
+
+.matchMeta {
+  display: flex;
+  gap: 10px;
+}
+
+.metaTag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-muted);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--color-base);
+  border: 0.5px solid var(--color-border);
+}
+
+.matchActions {
+  display: flex;
+  gap: 10px;
+}
+
+.primaryButton {
+  background: var(--color-accent);
+  color: #fff;
+  text-decoration: none;
+  padding: 11px 18px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  transition: opacity 0.2s;
+}
+
+.primaryButton:hover {
+  opacity: 0.9;
+}
+
+.secondaryButton {
+  border: 0.5px solid var(--color-border);
+  color: var(--color-text);
+  text-decoration: none;
+  padding: 11px 18px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.secondaryButton:hover {
+  background: var(--color-base);
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.emptyText {
+  font-size: 14px;
+  color: var(--color-muted);
+}
+
+.loading {
+  font-size: 14px;
+  color: var(--color-muted);
+}
+
+.healthCard {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.healthGrid {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.healthItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.healthValue {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--color-text);
+}
+
+.healthLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+}
+
+.healthDivider {
+  width: 0.5px;
+  height: 42px;
+  background: var(--color-border);
+}
+
+.inlineLink {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.quickSection {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.quickGrid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+.quickCard {
+  min-height: 140px;
+  background: var(--color-surface);
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-decoration: none;
+  transition:
+    border-color 0.2s,
+    transform 0.2s;
+}
+
+.quickCard:hover {
+  border-color: var(--color-accent);
+}
+
+.quickTitle {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: var(--color-text);
+}
+
+.quickDesc {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-muted);
+}

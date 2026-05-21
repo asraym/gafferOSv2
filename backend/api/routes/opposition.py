@@ -10,13 +10,13 @@ parser = OppositionParser()
 
 
 class ScoutingNotesRequest(BaseModel):
-    match_id: int
+    match_id: int = 1
     opponent_name: str
     notes: str
 
 
 class ScoutingNotesResponse(BaseModel):
-    match_id: int
+    match_id: int = 1
     opponent_name: str
     likely_formation: str | None
     press_style: str | None
