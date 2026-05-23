@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { getClub } from '@/lib/storage'
 import styles from './AppNavbar.module.css'
 
 const NAV_LINKS = [
@@ -15,6 +16,12 @@ const NAV_LINKS = [
 
 export default function AppNavbar() {
   const pathname = usePathname()
+  const [clubName, setClubName] = useState('My Club')
+
+  useEffect(() => {
+    const club = getClub()
+    if (club?.name) setClubName(club.name)
+  }, [])
 
   return (
     <nav className={styles.nav}>
@@ -39,7 +46,7 @@ export default function AppNavbar() {
         <div className={styles.right}>
           <div className={styles.clubBadge}>
             <span className={styles.clubDot} />
-            FC Bangalore
+            {clubName}
           </div>
         </div>
       </div>

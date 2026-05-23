@@ -1,9 +1,17 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
+import { isSetupDone } from '@/lib/storage'
 import styles from './CTA.module.css'
 
 export default function CTA() {
+  const router = useRouter()
+
+  function handleEnter() {
+    router.push(isSetupDone() ? '/dashboard' : '/setup')
+  }
+
   return (
     <section className={styles.section}>
       <div className={styles.inner}>
@@ -35,8 +43,8 @@ export default function CTA() {
           </p>
 
           <div className={styles.actions}>
-            <button className={styles.btnPrimary}>Get started free</button>
-            <button className={styles.btnGhost}>Book a demo</button>
+            <button className={styles.btnPrimary} onClick={handleEnter}>Get started free</button>
+            <button className={styles.btnGhost} onClick={handleEnter}>Book a demo</button>
           </div>
 
           <div className={styles.statsRow}>
@@ -52,7 +60,6 @@ export default function CTA() {
             ))}
           </div>
 
-          {/* Background pitch mark */}
           <svg
             className={styles.bgPitch}
             viewBox="0 0 200 200"

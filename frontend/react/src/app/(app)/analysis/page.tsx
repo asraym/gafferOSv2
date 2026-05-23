@@ -1,151 +1,11 @@
 'use client'
 
+
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getUpcomingMatch, analyseMatch } from '@/lib/api'
 import styles from './analysis.module.css'
-
-const ROLE_COLORS: Record<string, string> = {
-  GK: '#B86A3C',
-  DEF: '#8C7A63',
-  MID: '#5A8A6A',
-  FWD: '#B86A3C',
-}
-
-const FORMATION_SLOTS: Record<string, { x: number; y: number; role: string }[]> = {
-  '4-3-3': [
-    { x: 50, y: 88, role: 'GK' },
-    { x: 18, y: 68, role: 'DEF' },
-    { x: 38, y: 68, role: 'DEF' },
-    { x: 62, y: 68, role: 'DEF' },
-    { x: 82, y: 68, role: 'DEF' },
-    { x: 28, y: 46, role: 'MID' },
-    { x: 50, y: 42, role: 'MID' },
-    { x: 72, y: 46, role: 'MID' },
-    { x: 20, y: 20, role: 'FWD' },
-    { x: 50, y: 15, role: 'FWD' },
-    { x: 80, y: 20, role: 'FWD' },
-  ],
-  '4-4-2': [
-    { x: 50, y: 88, role: 'GK' },
-    { x: 18, y: 68, role: 'DEF' },
-    { x: 38, y: 68, role: 'DEF' },
-    { x: 62, y: 68, role: 'DEF' },
-    { x: 82, y: 68, role: 'DEF' },
-    { x: 18, y: 46, role: 'MID' },
-    { x: 38, y: 46, role: 'MID' },
-    { x: 62, y: 46, role: 'MID' },
-    { x: 82, y: 46, role: 'MID' },
-    { x: 35, y: 20, role: 'FWD' },
-    { x: 65, y: 20, role: 'FWD' },
-  ],
-  '4-2-3-1': [
-    { x: 50, y: 88, role: 'GK' },
-    { x: 18, y: 68, role: 'DEF' },
-    { x: 38, y: 68, role: 'DEF' },
-    { x: 62, y: 68, role: 'DEF' },
-    { x: 82, y: 68, role: 'DEF' },
-    { x: 35, y: 54, role: 'MID' },
-    { x: 65, y: 54, role: 'MID' },
-    { x: 20, y: 36, role: 'MID' },
-    { x: 50, y: 32, role: 'MID' },
-    { x: 80, y: 36, role: 'MID' },
-    { x: 50, y: 15, role: 'FWD' },
-  ],
-  '4-5-1': [
-    { x: 50, y: 88, role: 'GK' },
-    { x: 18, y: 68, role: 'DEF' },
-    { x: 38, y: 68, role: 'DEF' },
-    { x: 62, y: 68, role: 'DEF' },
-    { x: 82, y: 68, role: 'DEF' },
-    { x: 10, y: 46, role: 'MID' },
-    { x: 28, y: 46, role: 'MID' },
-    { x: 50, y: 42, role: 'MID' },
-    { x: 72, y: 46, role: 'MID' },
-    { x: 90, y: 46, role: 'MID' },
-    { x: 50, y: 18, role: 'FWD' },
-  ],
-  '5-4-1': [
-    { x: 50, y: 88, role: 'GK' },
-    { x: 10, y: 68, role: 'DEF' },
-    { x: 28, y: 68, role: 'DEF' },
-    { x: 50, y: 65, role: 'DEF' },
-    { x: 72, y: 68, role: 'DEF' },
-    { x: 90, y: 68, role: 'DEF' },
-    { x: 18, y: 46, role: 'MID' },
-    { x: 38, y: 46, role: 'MID' },
-    { x: 62, y: 46, role: 'MID' },
-    { x: 82, y: 46, role: 'MID' },
-    { x: 50, y: 18, role: 'FWD' },
-  ],
-}
-
-function FormationPitch({
-  formation,
-  xi,
-}: {
-  formation: string
-  xi: any[]
-}) {
-  const slots = FORMATION_SLOTS[formation] || FORMATION_SLOTS['4-3-3']
-
-  return (
-    <svg viewBox="0 0 100 100" className={styles.pitch}>
-      <g opacity="0.18">
-        <rect x="8" y="4" width="84" height="92" fill="none" stroke="#3D3530" strokeWidth="0.5" />
-        <line x1="8" y1="50" x2="92" y2="50" stroke="#3D3530" strokeWidth="0.3" />
-        <circle cx="50" cy="50" r="10" fill="none" stroke="#3D3530" strokeWidth="0.3" />
-        <rect x="30" y="4" width="40" height="12" fill="none" stroke="#3D3530" strokeWidth="0.3" />
-        <rect x="30" y="84" width="40" height="12" fill="none" stroke="#3D3530" strokeWidth="0.3" />
-      </g>
-      {slots.map((slot, i) => {
-        const player = xi[i]
-        const initials = player?.name
-          ? player.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)
-          : '?'
-        return (
-          <g key={i}>
-            <circle
-              cx={slot.x} cy={slot.y} r="5"
-              fill={ROLE_COLORS[slot.role]}
-              opacity="0.9"
-            />
-            <circle
-              cx={slot.x} cy={slot.y} r="6.5"
-              fill="none"
-              stroke={ROLE_COLORS[slot.role]}
-              strokeWidth="0.4"
-              opacity="0.35"
-            />
-            <text
-              x={slot.x} y={slot.y + 1.2}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fontSize="3"
-              fill="#F7F3EE"
-              fontFamily="monospace"
-              fontWeight="500"
-            >
-              {initials}
-            </text>
-            {player?.name && (
-              <text
-                x={slot.x} y={slot.y + 8.5}
-                textAnchor="middle"
-                fontSize="2.8"
-                fill="#3D3530"
-                fontFamily="monospace"
-                opacity="0.7"
-              >
-                {player.name.split(' ')[0]}
-              </text>
-            )}
-          </g>
-        )
-      })}
-    </svg>
-  )
-}
+import FormationPitch from '@/components/app/FormationPitch'
 
 function ProbBar({
   label,
@@ -304,14 +164,23 @@ export default function Analysis() {
 
               {/* Formation pitch */}
               <div className={styles.pitchCard}>
-                <p className={styles.cardLabel}>Starting XI — {report.recommended_formation}</p>
-                <div className={styles.pitchWrap}>
-                  <FormationPitch
-                    formation={report.recommended_formation}
-                    xi={report.starting_xi || []}
-                  />
-                </div>
+                <FormationPitch
+                  formation={report.recommended_formation}
+                  defensiveFormation={report.defensive_formation}
+                  xi={report.starting_xi || []}
+                  defensiveShape={report.defensive_shape}
+                  linkupPairs={report.linkup_pairs || []}
+                />
               </div>
+
+              {/* Right column */}
+              <div className={styles.rightCol}>
+                {/* ... rest unchanged ... */}
+              </div>
+
+            </div>
+
+            <div className={styles.mainGrid}>
 
               {/* Right column */}
               <div className={styles.rightCol}>
