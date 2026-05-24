@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+import io 
+import csv
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
@@ -220,4 +223,181 @@ def record_match_feedback(req: MatchFeedbackRequest, db: Session = Depends(get_d
         "formation_used":   req.formation_used,
         "coherence_score":  req.coherence_score,
         "followed_rec":     req.coach_followed_rec,
+    }
+
+class HistoricalImportRow(BaseModel):
+    jersey_number:    int
+    matches_played:   int
+    goals:            int = 0
+    assists:          int = 0
+    shots:            int = 0
+    key_passes:       int = 0
+    passes_completed: int = 0
+    passes_attempted: int = 0
+    tackles:          int = 0
+    interceptions:    int = 0
+    defensive_errors: int = 0
+    saves:            int = 0
+    minutes_played:   int = 0
+
+@router.post("/matches/import-historical")
+def import_historical_stats(
+    file:      UploadFile = File(...),
+    team_id:   int = Query(...),
+    season_id: int = Query(1),
+    db:        Session = Depends(get_db),
+):
+    """
+    Bulk import historical match stats for a full squad.
+    Creates one PlayerMatchSnapshot per player marked as historical,
+    and seeds PlayerSeasonStats as the cumulative baseline.
+
+    CSV format:
+    jersey_number,matches_played,goals,assists,shots,key_passes,
+    passes_completed,passes_attempted,tackles,interceptions,
+    defensive_errors,saves,minutes_played
+    """
+    from db.models import Player, Match, Season
+
+    # ── Read and parse CSV ───────────────────────────────────────────────────
+    content = file.file.read().decode("utf-8")
+    reader  = csv.DictReader(io.StringIO(content))
+
+    rows   = []
+    errors = []
+
+    for i, row in enumerate(reader, start=2):
+        try:
+            rows.append(HistoricalImportRow(
+                jersey_number    = int(row["jersey_number"]),
+                matches_played   = int(row["matches_played"]),
+                goals            = int(row.get("goals", 0)),
+                assists          = int(row.get("assists", 0)),
+                shots            = int(row.get("shots", 0)),
+                key_passes       = int(row.get("key_passes", 0)),
+                passes_completed = int(row.get("passes_completed", 0)),
+                passes_attempted = int(row.get("passes_attempted", 0)),
+                tackles          = int(row.get("tackles", 0)),
+                interceptions    = int(row.get("interceptions", 0)),
+                defensive_errors = int(row.get("defensive_errors", 0)),
+                saves            = int(row.get("saves", 0)),
+                minutes_played   = int(row.get("minutes_played", 0)),
+            ))
+        except Exception as e:
+            errors.append(f"Row {i}: {e}")
+
+    if errors and not rows:
+        raise HTTPException(status_code=400, detail={"errors": errors})
+
+    # ── Build jersey → player_id map for this team ───────────────────────────
+    from db.models import PlayerSeasonStats as PSS
+    squad = (
+        db.query(Player, PSS)
+        .join(PSS, PSS.player_id == Player.id)
+        .filter(PSS.team_id == team_id, PSS.season_id == season_id)
+        .all()
+    )
+    jersey_map = {p.jersey_number: p.id for p, _ in squad if p.jersey_number}
+
+    # ── Get or create historical match placeholder ───────────────────────────
+    # Use a single sentinel match row to anchor snapshots
+    historical_match = (
+        db.query(Match)
+        .filter(
+            Match.team_id       == team_id,
+            Match.season_id     == season_id,
+            Match.opponent_name == "__historical_import__",
+        )
+        .first()
+    )
+    if not historical_match:
+        historical_match = Match(
+            team_id       = team_id,
+            season_id     = season_id,
+            opponent_name = "__historical_import__",
+            match_date    = "2000-01-01",   # sentinel date
+            venue         = "neutral",
+        )
+        db.add(historical_match)
+        db.flush()
+
+    # ── Process rows ─────────────────────────────────────────────────────────
+    processed = 0
+    skipped   = []
+
+    for row in rows:
+        player_id = jersey_map.get(row.jersey_number)
+        if not player_id:
+            skipped.append(f"Jersey {row.jersey_number} — not found in team")
+            continue
+
+        # ── Upsert snapshot ──────────────────────────────────────────────────
+        snapshot = (
+            db.query(PlayerMatchSnapshot)
+            .filter_by(player_id=player_id, match_id=historical_match.id)
+            .first()
+        )
+        snap_data = {
+            "player_id":        player_id,
+            "match_id":         historical_match.id,
+            "season_id":        season_id,
+            "minutes_played":   row.minutes_played,
+            "was_starter":      True,
+            "goals":            row.goals,
+            "assists":          row.assists,
+            "shots":            row.shots,
+            "key_passes":       row.key_passes,
+            "passes_completed": row.passes_completed,
+            "passes_attempted": row.passes_attempted,
+            "tackles":          row.tackles,
+            "interceptions":    row.interceptions,
+            "defensive_errors": row.defensive_errors,
+            "saves":            row.saves,
+        }
+        if snapshot:
+            for k, v in snap_data.items():
+                setattr(snapshot, k, v)
+        else:
+            db.add(PlayerMatchSnapshot(**snap_data))
+
+        # ── Upsert season stats ──────────────────────────────────────────────
+        season_stats = (
+            db.query(PlayerSeasonStats)
+            .filter_by(player_id=player_id, season_id=season_id)
+            .first()
+        )
+        stats_data = {
+            "matches_played":   row.matches_played,
+            "goals":            row.goals,
+            "assists":          row.assists,
+            "shots":            row.shots,
+            "key_passes":       row.key_passes,
+            "passes_completed": row.passes_completed,
+            "passes_attempted": row.passes_attempted,
+            "tackles":          row.tackles,
+            "interceptions":    row.interceptions,
+            "defensive_errors": row.defensive_errors,
+            "saves":            row.saves,
+            "minutes_played":   row.minutes_played,
+        }
+        if season_stats:
+            for k, v in stats_data.items():
+                setattr(season_stats, k, v)
+        else:
+            db.add(PlayerSeasonStats(
+                player_id = player_id,
+                season_id = season_id,
+                team_id   = team_id,
+                **stats_data,
+            ))
+
+        processed += 1
+
+    db.commit()
+
+    return {
+        "status":    "ok",
+        "processed": processed,
+        "skipped":   skipped,
+        "errors":    errors,
     }

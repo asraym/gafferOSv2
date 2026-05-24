@@ -488,7 +488,7 @@ class TraitSubmission(BaseModel):
     traits:            list[str]
 
 
-@router.post("/{player_id}/traits")
+@router.post("/players/{player_id}/traits")
 def save_player_traits(player_id: int, payload: TraitSubmission, db: Session = Depends(get_db)):
     player = db.query(Player).filter(Player.id == player_id).first()
     if not player:
@@ -533,7 +533,7 @@ def save_player_traits(player_id: int, payload: TraitSubmission, db: Session = D
     }
 
 
-@router.get("/{player_id}/traits")
+@router.get("/players/{player_id}/traits")
 def get_player_traits(player_id: int, season_id: int, specific_position: str, db: Session = Depends(get_db)):
     player = db.query(Player).filter(Player.id == player_id).first()
     if not player:
@@ -574,7 +574,7 @@ class PhysicalAssessment(BaseModel):
     date_assessed:    Optional[str]   = None
 
 
-@router.post("/{player_id}/physical")
+@router.post("/players/{player_id}/physical")
 def submit_physical_assessment(
     player_id: int,
     payload: PhysicalAssessment,

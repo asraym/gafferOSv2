@@ -1,17 +1,24 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
+import { isSetupDone } from '@/lib/storage'
 import styles from './Navbar.module.css'
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
+  const router = useRouter()
 
   useEffect(() => {
     const handle = () => setScrolled(window.scrollY > 40)
     window.addEventListener('scroll', handle)
     return () => window.removeEventListener('scroll', handle)
   }, [])
+
+  function handleEnter() {
+    router.push(isSetupDone() ? '/dashboard' : '/setup')
+  }
 
   return (
     <motion.nav
@@ -32,8 +39,8 @@ export default function Navbar() {
       </div>
 
       <div className={styles.actions}>
-        <button className={styles.btnLogin}>Sign in</button>
-        <button className={styles.btnCta}>Get started</button>
+        <button className={styles.btnLogin} onClick={handleEnter}>Sign in</button>
+        <button className={styles.btnCta} onClick={handleEnter}>Get started</button>
       </div>
     </motion.nav>
   )

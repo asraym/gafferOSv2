@@ -208,7 +208,7 @@ class SquadTraitAggregator:
         """
         candidates = []
         for p in xi:
-            if p.get("position") != broad_pos:
+            if p.get("broad_position") != broad_pos and p.get("position") != broad_pos:
                 continue
             if not (set(p.get("traits", [])) & required_traits):
                 continue
