@@ -39,6 +39,12 @@ export default function Analysis() {
   const [analysing, setAnalysing] = useState(false)
   const [report, setReport] = useState<any>(null)
   const [error, setError] = useState('')
+  const [oppositionData, setOppositionData] = useState<any>(null)
+
+  useEffect(() => {
+    const stored = localStorage.getItem('gafferos_opp_profile')
+    if (stored) setOppositionData(JSON.parse(stored))
+  }, [])
 
   useEffect(() => {
     getUpcomingMatch()
@@ -165,11 +171,17 @@ export default function Analysis() {
               {/* Formation pitch */}
               <div className={styles.pitchCard}>
                 <FormationPitch
-                  formation={report.recommended_formation}
-                  defensiveFormation={report.defensive_formation}
-                  xi={report.starting_xi || []}
-                  defensiveShape={report.defensive_shape}
-                  linkupPairs={report.linkup_pairs || []}
+                    formation={report.recommended_formation}
+                    defensiveFormation={report.defensive_formation}
+                    xi={report.starting_xi}
+                    defensiveShape={report.defensive_shape}
+                    linkupPairs={report.linkup_pairs}
+                    opposition={oppositionData}          // from your opposition parse state
+                    tacticalFocus={report.tactical_focus}
+                    pressIntensity={report.press_intensity}
+                    matchRiskLevel={report.match_risk_level}
+                    matchupExploits={report.matchup_exploits}
+                    matchupVulnerabilities={report.matchup_vulnerabilities}
                 />
               </div>
 
