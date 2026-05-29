@@ -41,6 +41,7 @@ export default function Opposition() {
         notes,
       })
       setParsed(result)
+      localStorage.setItem('gafferos_opp_profile', JSON.stringify(result))
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -180,6 +181,7 @@ export default function Opposition() {
             Very dangerous from set pieces. Striker tends to drift wide."
           </p>
         </div>
+        <p style={{color: 'red'}}>{notes || 'empty'}</p>
         <textarea
           className={styles.textarea}
           placeholder="Write your scouting notes here..."
