@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import AppNavbar from '@/components/app/AppNavBar'
 import { isSetupDone } from '@/lib/storage'
 import styles from './layout.module.css'
+import { isLoggedIn } from '@/lib/auth'
 
 export default function AppLayout({
   children,
@@ -16,6 +17,10 @@ export default function AppLayout({
   const [checking, setChecking] = useState(true)
 
   useEffect(() => {
+    if (!isLoggedIn()) {
+      router.replace('/login')
+      return 
+    }
     if (!isSetupDone()) {
       router.replace('/setup')
     } else {

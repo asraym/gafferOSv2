@@ -2,13 +2,16 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 import type { Match } from '@/types/match'
 import type { Player } from '@/types/player'
+import { getAuthHeaders } from './auth'
 export const TEAM_ID = 1
 export const CLUB_ID = 1
 export const SEASON_ID = 1
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
     ...options,
   })
   if (!res.ok) {
@@ -34,12 +37,18 @@ export const registerPlayer = (body: object) =>
 export const importPlayersCSV = (formData: FormData) =>
   fetch(`${API}/api/players/import-csv?club_id=${CLUB_ID}&team_id=${TEAM_ID}`, {
     method: 'POST',
+    headers: {
+      ...getAuthHeaders(),
+    },
     body: formData,
   }).then(r => r.json())
 
 export const uploadPhysicalCSV = (formData: FormData) =>
   fetch(`${API}/api/players/physical-csv?team_id=${TEAM_ID}`, {
     method: 'POST',
+    headers:  {
+      ...getAuthHeaders(),
+    },
     body: formData,
   }).then(r => r.json())
 

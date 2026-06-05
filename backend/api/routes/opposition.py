@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from db.database import get_db
 from db.models import OppositionProfile, Match
 from core.opposition_parser import OppositionParser
+from api.auth import require_auth
 
 router = APIRouter()
 parser = OppositionParser()
@@ -28,7 +29,7 @@ class ScoutingNotesResponse(BaseModel):
 
 
 @router.post("/opposition/parse", response_model=ScoutingNotesResponse)
-def parse_opposition(request: ScoutingNotesRequest, db: Session = Depends(get_db)):
+def parse_opposition(request: ScoutingNotesRequest, db: Session = Depends(get_db), user: str = Depends(require_auth),):
     match = db.query(Match).filter(Match.id == request.match_id).first()
     if not match:
         raise HTTPException(status_code=404, detail="Match not found.")

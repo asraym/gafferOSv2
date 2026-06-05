@@ -10,6 +10,7 @@ from db.models import Match, PlayerMatchSnapshot, PlayerSeasonStats
 from datetime import date as date_type
 from core.tactical_engine import TacticalEngine
 from core.scenario.scenario_builder import run as run_scenario, build_metadata, VALID_SCENARIOS
+from api.auth import require_auth
 
 router = APIRouter()
 _engine = TacticalEngine()
@@ -19,7 +20,7 @@ class AnalyseRequest(BaseModel):
     team_id: int
 
 @router.post("/analyse")
-def analyse_match(req: AnalyseRequest, db: Session = Depends(get_db)):
+def analyse_match(req: AnalyseRequest, db: Session = Depends(get_db), user: str = Depends(require_auth),):
     try:
         result = _engine.analyse(db, req.match_id, req.team_id)
         return result
@@ -43,7 +44,7 @@ class MatchRegisterRequest(BaseModel):
 
 
 @router.post("/matches/register")
-def register_match(req: MatchRegisterRequest, db: Session = Depends(get_db)):
+def register_match(req: MatchRegisterRequest, db: Session = Depends(get_db), user: str = Depends(require_auth),):
     match = Match(
         season_id     = req.season_id,
         team_id       = req.team_id,
@@ -81,7 +82,7 @@ class SnapshotRequest(BaseModel):
 
 
 @router.post("/matches/snapshot")
-def write_snapshot(req: SnapshotRequest, db: Session = Depends(get_db)):
+def write_snapshot(req: SnapshotRequest, db: Session = Depends(get_db), user: str = Depends(require_auth),):
     match = db.query(Match).filter(Match.id == req.match_id).first()
     if not match:
         raise HTTPException(status_code=404, detail="Match not found.")
@@ -145,7 +146,7 @@ def write_snapshot(req: SnapshotRequest, db: Session = Depends(get_db)):
     }
 
 @router.get("/matches/upcoming")
-def get_upcoming_matches(team_id: int, db: Session = Depends(get_db)):
+def get_upcoming_matches(team_id: int, db: Session = Depends(get_db), user: str = Depends(require_auth)):
     match = (
         db.query(Match)
         .filter(
@@ -185,7 +186,7 @@ class MatchFeedbackRequest(BaseModel):
 
 
 @router.post("/matches/feedback")
-def record_match_feedback(req: MatchFeedbackRequest, db: Session = Depends(get_db)):
+def record_match_feedback(req: MatchFeedbackRequest, db: Session = Depends(get_db), user: str = Depends(require_auth),):
     match = db.query(Match).filter(Match.id == req.match_id).first()
     if not match:
         raise HTTPException(status_code=404, detail="Match not found.")
@@ -247,6 +248,7 @@ def import_historical_stats(
     team_id:   int = Query(...),
     season_id: int = Query(1),
     db:        Session = Depends(get_db),
+    user: str = Depends(require_auth),
 ):
     """
     Bulk import historical match stats for a full squad.
@@ -418,7 +420,7 @@ class SimulatePackageRequest(BaseModel):
 # ── Single scenario (existing, updated response) ──────────────────────────────
  
 @router.post("/matches/simulate")
-def simulate_scenario(body: SimulateRequest, db: Session = Depends(get_db)):
+def simulate_scenario(body: SimulateRequest, db: Session = Depends(get_db), user: str = Depends(require_auth)):
     if body.scenario not in VALID_SCENARIOS:
         raise HTTPException(400, detail=f"Invalid scenario. Valid: {sorted(VALID_SCENARIOS)}")
     try:
@@ -444,7 +446,7 @@ def simulate_scenario(body: SimulateRequest, db: Session = Depends(get_db)):
 # ── Package endpoint — all scenarios in one call ──────────────────────────────
  
 @router.post("/matches/simulate-package")
-def simulate_package(body: SimulatePackageRequest, db: Session = Depends(get_db)):
+def simulate_package(body: SimulatePackageRequest, db: Session = Depends(get_db), user: str = Depends(require_auth),):
     """
     Returns all scenarios in one payload — the full simulation film.
  

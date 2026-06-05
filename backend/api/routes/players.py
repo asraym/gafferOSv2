@@ -13,6 +13,7 @@ from db.models import (
 from core.csv_importer import CSVImporter
 from core.player_traits import validate_traits, get_traits_for_position, get_tactical_profile
 from core.attribute_calculator import calculate_attributes, calculate_role_rating, calculate_overall_rating
+from api.auth import require_auth
 
 router = APIRouter()
 csv_importer = CSVImporter()
@@ -26,7 +27,7 @@ VALID_SPECIFIC = ["GK", "CB", "RB", "LB", "RWB", "LWB",
 # --- Player List (cleaned up) ---
 
 @router.get("/players")
-def list_players(team_id: int, db: Session = Depends(get_db)):
+def list_players(team_id: int, db: Session = Depends(get_db), user: str = Depends(require_auth),):
     rows = (
         db.query(Player, PlayerSeasonStats, PlayerAttributeProfile, PlayerPositionalAnswers)
         .join(PlayerSeasonStats, PlayerSeasonStats.player_id == Player.id)
@@ -108,7 +109,7 @@ class PlayerRegistrationResponse(BaseModel):
 
 
 @router.post("/players/register", response_model=PlayerRegistrationResponse)
-def register_player(request: PlayerRegistrationRequest, db: Session = Depends(get_db)):
+def register_player(request: PlayerRegistrationRequest, db: Session = Depends(get_db), user: str = Depends(require_auth)):
     club = db.query(Club).filter(Club.id == request.club_id).first()
     if not club:
         raise HTTPException(status_code=404, detail="Club not found.")
@@ -191,7 +192,8 @@ async def import_players_csv(
     club_id: int,
     team_id: int,
     file: UploadFile = File(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: str = Depends(require_auth),
 ):
     club = db.query(Club).filter(Club.id == club_id).first()
     if not club:
@@ -278,7 +280,8 @@ class PhysicalCSVResponse(BaseModel):
 async def import_physical_csv(
     team_id: int,
     file: UploadFile = File(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: str = Depends(require_auth),
 ):
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="File must be a .csv file.")
@@ -442,7 +445,7 @@ async def import_physical_csv(
 # --- Player Form Curve ---
 
 @router.get("/players/{player_id}/form")
-def player_form(player_id: int, n: int = 5, db: Session = Depends(get_db)):
+def player_form(player_id: int, n: int = 5, db: Session = Depends(get_db), user: str = Depends(require_auth),):
     player = db.query(Player).filter(Player.id == player_id).first()
     if not player:
         raise HTTPException(status_code=404, detail="Player not found.")
@@ -489,7 +492,7 @@ class TraitSubmission(BaseModel):
 
 
 @router.post("/players/{player_id}/traits")
-def save_player_traits(player_id: int, payload: TraitSubmission, db: Session = Depends(get_db)):
+def save_player_traits(player_id: int, payload: TraitSubmission, db: Session = Depends(get_db), user: str = Depends(require_auth)):
     player = db.query(Player).filter(Player.id == player_id).first()
     if not player:
         raise HTTPException(status_code=404, detail="Player not found.")
@@ -534,7 +537,7 @@ def save_player_traits(player_id: int, payload: TraitSubmission, db: Session = D
 
 
 @router.get("/players/{player_id}/traits")
-def get_player_traits(player_id: int, season_id: int, specific_position: str, db: Session = Depends(get_db)):
+def get_player_traits(player_id: int, season_id: int, specific_position: str, db: Session = Depends(get_db), user: str = Depends(require_auth)):
     player = db.query(Player).filter(Player.id == player_id).first()
     if not player:
         raise HTTPException(status_code=404, detail="Player not found.")
@@ -578,7 +581,8 @@ class PhysicalAssessment(BaseModel):
 def submit_physical_assessment(
     player_id: int,
     payload: PhysicalAssessment,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: str = Depends(require_auth)
 ):
     player = db.query(Player).filter(Player.id == player_id).first()
     if not player:
