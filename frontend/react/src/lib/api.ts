@@ -1,4 +1,4 @@
-const API = 'http://localhost:8000'
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 export const TEAM_ID = 1
 export const CLUB_ID = 1
