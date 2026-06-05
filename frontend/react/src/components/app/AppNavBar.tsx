@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { getClub } from '@/lib/storage'
-import styles from './AppNavbar.module.css'
+import styles from './AppNavBar.module.css'
 
 const NAV_LINKS = [
   { href: '/dashboard', label: 'Dashboard' },
