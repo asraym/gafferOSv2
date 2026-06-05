@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import AppNavbar from '@/components/app/AppNavbar'
+import AppNavbar from '@/components/app/AppNavBar'
 import { isSetupDone } from '@/lib/storage'
 import styles from './layout.module.css'
 
