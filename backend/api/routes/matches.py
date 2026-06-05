@@ -9,6 +9,7 @@ from db.database import get_db
 from db.models import Match, PlayerMatchSnapshot, PlayerSeasonStats
 from datetime import date as date_type
 from core.tactical_engine import TacticalEngine
+from core.scenario.scenario_builder import run as run_scenario, build_metadata, VALID_SCENARIOS
 
 router = APIRouter()
 _engine = TacticalEngine()
@@ -400,4 +401,101 @@ def import_historical_stats(
         "processed": processed,
         "skipped":   skipped,
         "errors":    errors,
+    }
+
+class SimulateRequest(BaseModel):
+    match_id: int
+    team_id: int
+    scenario: str
+ 
+ 
+class SimulatePackageRequest(BaseModel):
+    match_id: int
+    team_id: int
+    scenarios: Optional[list[str]] = None  # if None, returns all 5
+ 
+ 
+# ── Single scenario (existing, updated response) ──────────────────────────────
+ 
+@router.post("/matches/simulate")
+def simulate_scenario(body: SimulateRequest, db: Session = Depends(get_db)):
+    if body.scenario not in VALID_SCENARIOS:
+        raise HTTPException(400, detail=f"Invalid scenario. Valid: {sorted(VALID_SCENARIOS)}")
+    try:
+        frames, meta = run_scenario(
+            db=db,
+            match_id=body.match_id,
+            team_id=body.team_id,
+            scenario=body.scenario,
+        )
+        return {
+            "match_id": body.match_id,
+            "scenario": body.scenario,
+            "meta": meta,
+            "frame_count": len(frames),
+            "frames": frames,
+        }
+    except ValueError as e:
+        raise HTTPException(404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(500, detail=f"Simulation error: {str(e)}")
+ 
+ 
+# ── Package endpoint — all scenarios in one call ──────────────────────────────
+ 
+@router.post("/matches/simulate-package")
+def simulate_package(body: SimulatePackageRequest, db: Session = Depends(get_db)):
+    """
+    Returns all scenarios in one payload — the full simulation film.
+ 
+    Response shape:
+    {
+      "match_id": 1,
+      "team_id": 1,
+      "playlist": [
+        {
+          "scenario": "goal_kick",
+          "meta": { "title": ..., "phase": ..., "purpose": ..., "takeaway": ... },
+          "frame_count": 4,
+          "frames": [ ...SimFrame dicts... ]
+        },
+        ...
+      ]
+    }
+    """
+    requested = body.scenarios or list(VALID_SCENARIOS)
+    invalid   = [s for s in requested if s not in VALID_SCENARIOS]
+    if invalid:
+        raise HTTPException(400, detail=f"Invalid scenarios: {invalid}. Valid: {sorted(VALID_SCENARIOS)}")
+ 
+    # Ordered playlist — in possession first, then out of possession
+    ORDER = ["goal_kick", "transition", "special", "defensive_shape", "opponent_threat"]
+    ordered = [s for s in ORDER if s in requested]
+ 
+    playlist = []
+    errors   = []
+ 
+    for scenario in ordered:
+        try:
+            frames, meta = run_scenario(
+                db=db,
+                match_id=body.match_id,
+                team_id=body.team_id,
+                scenario=scenario,
+            )
+            playlist.append({
+                "scenario": scenario,
+                "meta": meta,
+                "frame_count": len(frames),
+                "frames": frames,
+            })
+        except Exception as e:
+            # Don't fail the whole package if one scenario errors
+            errors.append({"scenario": scenario, "error": str(e)})
+ 
+    return {
+        "match_id": body.match_id,
+        "team_id": body.team_id,
+        "playlist": playlist,
+        "errors": errors if errors else None,
     }

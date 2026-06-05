@@ -201,4 +201,6 @@ class TacticalEngine:
 
             # Report
             "reasoning":             data["reasoning"],
+            "opposition":            data.get("opposition"),
+            "formation_selection_note": data.get("formation_selection_note"),
         }

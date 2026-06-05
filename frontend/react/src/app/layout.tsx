@@ -2,6 +2,9 @@ import type { Metadata } from 'next'
 import { Barlow, Barlow_Condensed, JetBrains_Mono } from 'next/font/google'
 import LenisProvider from '@/components/LenisProvider'
 import './globals.css'
+import { gsap } from "gsap";
+import { MotionPathPlugin } from "gsap/MotionPathPlugin";
+gsap.registerPlugin(MotionPathPlugin);
 
 const barlow = Barlow({
   subsets: ['latin'],
