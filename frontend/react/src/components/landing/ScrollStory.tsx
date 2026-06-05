@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, useScroll, useTransform, useSpring } from 'framer-motion'
 import styles from './ScrollStory.module.css'
 
@@ -204,9 +204,15 @@ export default function ScrollStory() {
 
   // Step 2 formation tag switches mid-step
   const formTag2 = useTransform(smooth, (s) => {
-    if (s < 0.52) return '3-5-2'
-    return '4-5-1'
+    return s < 0.5 ? '3-5-2' : '4-5-1'
   })
+  const [formTag2Text, setFormTag2Text] = useState<'3-5-2' | '4-5-1'>('3-5-2')
+
+  useEffect(() => {
+    return formTag2.on('change', (latest: '3-5-2' | '4-5-1') => {
+      setFormTag2Text(latest)
+    })
+  }, [formTag2])
 
   // Defensive line (step 2)
   const defLineOp = useTransform(smooth, [0.38, 0.46, 0.61, 0.66], [0, 1, 1, 0])
@@ -248,7 +254,7 @@ export default function ScrollStory() {
               {/* Step 2: formation tag updates live */}
               {i === 1 ? (
                 <motion.div className={styles.formationTag}>
-                  {formTag2}
+                  {formTag2Text}
                 </motion.div>
               ) : (
                 <div className={styles.formationTag}>{s.tag}</div>

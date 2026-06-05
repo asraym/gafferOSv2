@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { isSetupDone } from '@/lib/storage'
-import styles from './Navbar.module.css'
+import styles from './NavBar.module.css'
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)

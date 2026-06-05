@@ -1,4 +1,4 @@
-import Navbar from '@/components/landing/Navbar'
+import Navbar from '@/components/landing/NavBar'
 import Hero from '@/components/landing/Hero'
 import Features from '@/components/landing/Features'
 import ScrollStory from '@/components/landing/ScrollStory'

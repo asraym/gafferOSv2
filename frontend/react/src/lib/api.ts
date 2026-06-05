@@ -1,5 +1,7 @@
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
+import type { Match } from '@/types/match'
+import type { Player } from '@/types/player'
 export const TEAM_ID = 1
 export const CLUB_ID = 1
 export const SEASON_ID = 1
@@ -18,7 +20,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 // Players
 export const getPlayers = () =>
-  request(`/api/players?team_id=${TEAM_ID}`)
+  request<Player[]>(`/api/players?team_id=${TEAM_ID}`)
 
 export const getPlayerForm = (id: number, n = 5) =>
   request(`/api/players/${id}/form?n=${n}`)
@@ -43,7 +45,7 @@ export const uploadPhysicalCSV = (formData: FormData) =>
 
 // Matches
 export const getUpcomingMatch = () =>
-  request(`/api/matches/upcoming?team_id=${TEAM_ID}`)
+  request<Match>(`/api/matches/upcoming?team_id=${TEAM_ID}`)
 
 export const registerMatch = (body: object) =>
   request('/api/matches/register', { method: 'POST', body: JSON.stringify(body) })
