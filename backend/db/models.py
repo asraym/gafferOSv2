@@ -256,3 +256,53 @@ class MatchTeamStats(Base):
     avg_transition_time  = Column(Float, nullable=True)
     defensive_line_height = Column(Float, nullable=True)
     created_at           = Column(DateTime, default=datetime.utcnow)
+
+class AnalysisRun(Base):
+    __tablename__ = "analysis_runs"
+
+    id                      = Column(Integer, primary_key=True)
+    match_id                = Column(Integer, ForeignKey("matches.id", ondelete="CASCADE"))
+    team_id                 = Column(Integer, nullable=False)
+    generated_at            = Column(DateTime, default=datetime.utcnow)
+    osi                     = Column(Float)
+    dsi                     = Column(Float)
+    psi                     = Column(Float)
+    possession_share        = Column(Float)
+    discipline_index        = Column(Float)
+    shot_quality_index      = Column(Float)
+    defensive_line_height   = Column(Float)
+    opp_strength            = Column(String(20))
+    opp_style               = Column(String(30))
+    opp_formation           = Column(String(10))
+    venue                   = Column(String(20))
+    recommended_formation   = Column(String(10))
+    recommended_press       = Column(String(20))
+    recommended_line        = Column(String(20))
+    recommended_focus       = Column(String(50))
+    predicted_win_prob      = Column(Float)
+    predicted_draw_prob     = Column(Float)
+    predicted_loss_prob     = Column(Float)
+    coherence_score         = Column(Float)
+    squad_style             = Column(String(30))
+    data_mode               = Column(String(20))
+
+    match = relationship("Match", backref="analysis_runs")
+
+
+class MatchFeedback(Base):
+    __tablename__ = "match_feedback"
+
+    id                  = Column(Integer, primary_key=True)
+    match_id            = Column(Integer, ForeignKey("matches.id", ondelete="CASCADE"))
+    analysis_run_id     = Column(Integer, ForeignKey("analysis_runs.id", ondelete="SET NULL"), nullable=True)
+    submitted_at        = Column(DateTime, default=datetime.utcnow)
+    actual_result       = Column(String(1))
+    goals_scored        = Column(Integer)
+    goals_conceded      = Column(Integer)
+    formation_used      = Column(String(10))
+    coach_followed_rec  = Column(Boolean)
+    coach_rating        = Column(Integer)
+    coach_notes         = Column(Text)
+
+    match = relationship("Match", backref="feedback")
+    analysis_run = relationship("AnalysisRun", backref="feedback")

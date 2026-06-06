@@ -66,20 +66,20 @@ class TacticalEngine:
             data = self.constraints.validate(data)
 
         data = self.explainer.explain(data)
+        self._store_recommendation(db, match_id, team_id, data)
         return self._build_response(data)
-        self._store_recommendation(db, match_id, data)
     
-    def _store_recommendation(self, db, match_id: int, data: dict) -> None:
+    def _store_recommendation(self, db, match_id: int, team_id: int, data: dict) -> None:
         """
-        Stores engine recommendations into the match row immediately.
-        Coach doesn't need to submit feedback for the prediction to be recorded.
+        Stores engine recommendation into the match row and creates an analysis_run record.
+        Non-fatal - analysis never crashes if storage fails.
         """
         try:
-            from db.models import Match
+            from db.models import Match, AnalysisRun
             match = db.query(Match).filter(Match.id == match_id).first()
             if not match:
                 return
-            fields = {
+            rec_fields = {
                 "recommended_formation": data.get("recommended_formation"),
                 "recommended_line":      data.get("defensive_line"),
                 "recommended_press":     data.get("press_intensity"),
@@ -88,13 +88,50 @@ class TacticalEngine:
                 "squad_style":           data.get("squad_style", {}).get("style"),
                 "coherence_score":       data.get("coherence_score"),
             }
-            for field, val in fields.items():
+            for field, val in rec_fields.items():
                 if val is not None and hasattr(match, field):
                     setattr(match, field, val)
+
+            # Create analysis_run record
+            metrics = data.get("metrics", {})
+            opposition = data.get("opposition", {})
+            run = AnalysisRun(
+                match_id              = match_id,
+                team_id               = team_id,
+                osi                   = metrics.get("offensive_output_index"),
+                dsi                   = metrics.get("defensive_solidity_index"),
+                psi                   = metrics.get("passing_stability_index"),
+                possession_share      = metrics.get("possession_share"),
+                discipline_index      = metrics.get("discipline_index"),
+                shot_quality_index    = metrics.get("shot_quality_index"),
+                defensive_line_height = metrics.get("defensive_line_height"),
+                opp_strength          = opposition.get("opponent_strength"),
+                opp_style             = opposition.get("playing_style"),
+                opp_formation         = opposition.get("likely_formation"),
+                venue                 = data.get("venue"),
+                recommended_formation = data.get("recommended_formation"),
+                recommended_press     = data.get("press_intensity"),
+                recommended_line      = data.get("defensive_line"),
+                recommended_focus     = data.get("tactical_focus"),
+                predicted_win_prob    = data.get("win_probability"),
+                predicted_draw_prob   = data.get("draw_probability"),
+                predicted_loss_prob   = data.get("loss_probability"),
+                coherence_score       = data.get("coherence_score"),
+                squad_style           = data.get("squad_style", {}).get("style"),
+                data_mode             = data.get("data_mode"),
+            )
+            db.add(run)
             db.commit()
+            db.refresh(run)
+
+            if hasattr(match, "analysis_run_id"):
+                match.analysis_run_id = run.id
+                db.commit()
+
         except Exception as e:
-            # Non-fatal — don't crash the analysis if storage fails
             print(f"[Engine] Failed to store recommendation: {e}")
+            raise e
+
 
     def _matchup_pass(self, data: dict, use_full_squad: bool) -> dict:
         """

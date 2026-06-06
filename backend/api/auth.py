@@ -5,6 +5,9 @@ import base64
 import hashlib
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel
+from dotenv import load_dotenv
+
+load_dotenv()
 
 router = APIRouter()
 
